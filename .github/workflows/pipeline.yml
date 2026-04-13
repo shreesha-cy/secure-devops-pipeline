@@ -31,7 +31,7 @@ jobs:
 
       # 🐳 BUILD IMAGE
       - name: Build Docker Image
-        run: docker build -t shreesha369/devops-app .
+        run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
 
       # 🐳 PUSH IMAGE
       - name: Push Docker Image
