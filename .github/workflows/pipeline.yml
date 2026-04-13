@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Java 17
         uses: actions/setup-java@v3
@@ -36,3 +41,4 @@ jobs:
       # 🐳 PUSH IMAGE
       - name: Push Docker Image
         run: docker push shreesha369/devops-app
+
