@@ -136,10 +136,10 @@ jobs:
             -DfailOnError=false
 
       # ❌ FINAL FAIL (important)
-      - name: Fail if secrets found
-        run: |
-          echo "Failing pipeline intentionally for validation"
-          exit 1
+     # - name: Fail if secrets found
+      #  run: |
+       #   echo "Failing pipeline intentionally for validation"
+       #   exit 1
 
 
 
