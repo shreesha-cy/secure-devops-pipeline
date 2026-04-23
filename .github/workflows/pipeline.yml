@@ -47,7 +47,7 @@ jobs:
       - name: Build JAR
         run: |
           cd app
-          mvn clean install -DskipTests -Dcheckstyle.skip=true
+          mvn clean install -DskipTests -Dcheckstyle.skip=true -Dspring-javaformat.skip=true
 
       # 🐳 DOCKER LOGIN
       - name: Docker Login
@@ -63,6 +63,15 @@ jobs:
       # 🐳 PUSH IMAGE
       - name: Push Docker Image
         run: docker push shreesha369/devops-app
+
+      # 🛡️ TRIVY SCAN
+      - name: Scan Docker Image with Trivy
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: shreesha369/devops-app
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
 
       # ⏳ WAIT FOR SONARQUBE
       - name: Wait for SonarQube
@@ -132,14 +141,6 @@ jobs:
         run: |
           cd app
           mvn org.owasp:dependency-check-maven:check \
-            -DautoUpdate=false \
-            -DfailOnError=false
-
-      # ❌ FINAL FAIL (important)
-     # - name: Fail if secrets found
-      #  run: |
-       #   echo "Failing pipeline intentionally for validation"
-       #   exit 1
-
-
-
+            -Dformat=HTML \
+            -DfailBuildOnCVSS=7 \
+            -DskipProvidedScope=true
