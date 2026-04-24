@@ -158,13 +158,8 @@
       <artifactId>testcontainers-mysql</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependencies>
-   <!-- 🔐 Fix Thymeleaf -->
-   <dependency>
-     <groupId>org.thymeleaf</groupId>
-     <artifactId>thymeleaf</artifactId>
-     <version>3.1.4.RELEASE</version>
-   </dependency>
+
+  
 
    <dependency>
      <groupId>org.thymeleaf</groupId>
@@ -179,7 +174,7 @@
      <version>3.1.1</version>
      <scope>test</scope>
    </dependency>
-</dependencies>
+
   </dependencies>
 
   <build>
