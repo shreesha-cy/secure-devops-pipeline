@@ -36,7 +36,30 @@
     <nohttp-checkstyle.version>0.0.11</nohttp-checkstyle.version>
     <spring-format.version>0.0.47</spring-format.version>
   </properties>
+<dependencyManagement>
+  <dependencies>
+    
+    <!-- 🔐 Force Thymeleaf upgrade -->
+    <dependency>
+      <groupId>org.thymeleaf</groupId>
+      <artifactId>thymeleaf</artifactId>
+      <version>3.1.4.RELEASE</version>
+    </dependency>
 
+    <dependency>
+      <groupId>org.thymeleaf</groupId>
+      <artifactId>thymeleaf-spring6</artifactId>
+      <version>3.1.4.RELEASE</version>
+    </dependency>
+    <dependency>
+     <groupId>tools.jackson.core</groupId>
+     <artifactId>jackson-core</artifactId>
+     <version>3.1.1</version>
+     <scope>test</scope>
+   </dependency>
+
+  </dependencies>
+</dependencyManagement>
   <dependencies>
     <!-- Spring and Spring Boot dependencies -->
     <dependency>
@@ -158,23 +181,6 @@
       <artifactId>testcontainers-mysql</artifactId>
       <scope>test</scope>
     </dependency>
-
-  
-
-   <dependency>
-     <groupId>org.thymeleaf</groupId>
-     <artifactId>thymeleaf-spring6</artifactId>
-     <version>3.1.4.RELEASE</version>
-   </dependency>
-
-   <!-- 🔐 Fix Jackson -->
-   <dependency>
-     <groupId>tools.jackson.core</groupId>
-     <artifactId>jackson-core</artifactId>
-     <version>3.1.1</version>
-     <scope>test</scope>
-   </dependency>
-
   </dependencies>
 
   <build>
