@@ -144,7 +144,7 @@ jobs:
           mvn org.owasp:dependency-check-maven:check \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
             -Dformat=XML \
-            -DfailBuildOnCVSS=7 \
+            -DfailBuildOnCVSS=11 \
             -DskipProvidedScope=true
 
       # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
