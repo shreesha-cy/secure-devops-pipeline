@@ -145,4 +145,4 @@ jobs:
             {{ secrets.NVD_API_KEY }} \
             -Dformat=HTML \
             -DfailBuildOnCVSS=7 \
-            -DskipProvidedScope=true   
+            -DskipProvidedScope=true
