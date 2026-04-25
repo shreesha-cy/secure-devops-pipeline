@@ -141,8 +141,7 @@ jobs:
         run: |
           cd app
           mvn org.owasp:dependency-check-maven:check \
-            -DnvdApiKey=$
-            {{ secrets.NVD_API_KEY }} \
+            -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
             -Dformat=HTML \
             -DfailBuildOnCVSS=7 \
             -DskipProvidedScope=true
