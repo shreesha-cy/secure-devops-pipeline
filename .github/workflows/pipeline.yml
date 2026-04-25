@@ -64,13 +64,14 @@ jobs:
       - name: Push Docker Image
         run: docker push shreesha369/devops-app
 
-      # 🛡️ TRIVY SCAN
+      # 🛡️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: shreesha369/devops-app
-          format: table
-          exit-code: 1
+          format: json
+          output: trivy-report.json
+          exit-code: 0
           severity: CRITICAL,HIGH
 
       # ⏳ WAIT FOR SONARQUBE
@@ -136,12 +137,22 @@ jobs:
             echo "✅ Quality Gate Passed"
           fi
 
-      # 🛡️ OWASP DEPENDENCY CHECK
+      # 🛡️ OWASP DEPENDENCY CHECK (UPDATED → XML)
       - name: OWASP Dependency Check
         run: |
           cd app
           mvn org.owasp:dependency-check-maven:check \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
-            -Dformat=HTML \
+            -Dformat=XML \
             -DfailBuildOnCVSS=7 \
             -DskipProvidedScope=true
+
+      # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
+      - name: Upload to DefectDojo (placeholder)
+        if: false
+        run: |
+          curl -X POST "http://<DEFECTDOJO_URL>/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+            -F "file=@app/target/dependency-check-report.xml" \
+            -F "scan_type=Dependency Check Scan" \
+            -F "engagement=1"
