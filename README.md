@@ -1,156 +1,52 @@
-# 🚀 Secure DevOps Pipeline – P1 (CI + Docker)
+# Conftest
 
-## 👩‍💻 Overview
+[![Go Report Card](https://goreportcard.com/badge/open-policy-agent/opa)](https://goreportcard.com/report/open-policy-agent/conftest) [![Netlify](https://api.netlify.com/api/v1/badges/2d928746-3380-4123-b0eb-1fd74ba390db/deploy-status)](https://app.netlify.com/sites/vibrant-villani-65041c/deploys)
 
-This repository contains the **P1 (Pipeline Setup)** of the Secure DevOps project.
+Conftest helps you write tests against structured configuration data. Using Conftest you can
+write tests for your Kubernetes configuration, Tekton pipeline definitions, Terraform code,
+Serverless configs or any other config files.
 
-The pipeline automatically:
+Conftest uses the Rego language from [Open Policy Agent](https://www.openpolicyagent.org/) for writing
+the assertions. You can read more about Rego in [How do I write policies](https://www.openpolicyagent.org/docs/how-do-i-write-policies.html)
+in the Open Policy Agent documentation.
 
-* Builds the Spring Boot application
-* Creates a Docker image
-* Pushes the image to Docker Hub
+Here's a quick example. Save the following as `policy/deployment.rego`:
 
----
+```rego
+package main
 
-## 🧱 Project Structure
+deny[msg] {
+  input.kind == "Deployment"
+  not input.spec.template.spec.securityContext.runAsNonRoot
 
-```
-secure-devops-pipeline/
-│
-├── app/                     # Spring Boot application
-├── docker/                  # Dockerfile
-├── k8s/                     # Kubernetes configs (for later stages)
-├── docs/                    # Documentation
-└── .github/workflows/       # CI/CD pipeline
-```
+  msg := "Containers must not run as root"
+}
 
----
+deny[msg] {
+  input.kind == "Deployment"
+  not input.spec.selector.matchLabels.app
 
-## ⚙️ CI/CD Pipeline (GitHub Actions)
-
-Pipeline triggers on:
-
-```
-push → main branch
+  msg := "Containers must provide app label for pod selectors"
+}
 ```
 
-### Steps:
+Assuming you have a Kubernetes deployment in `deployment.yaml` you can run Conftest like so:
 
-1. Checkout code
-2. Setup Java 17
-3. Build JAR using Maven
-4. Build Docker image
-5. Push image to Docker Hub
+```console
+$ conftest test deployment.yaml
+FAIL - deployment.yaml - Containers must not run as root
+FAIL - deployment.yaml - Containers must provide app label for pod selectors
 
----
-
-## 🐳 Docker Image Details
-
-**Image:**
-
-```
-shreesha369/devops-app:latest
+2 tests, 0 passed, 0 warnings, 2 failures, 0 exceptions
 ```
 
-**Port:**
+Conftest isn't specific to Kubernetes. It will happily let you write tests for any configuration files in a variety of different formats. See the [documentation](https://www.conftest.dev/) for [installation instructions](https://www.conftest.dev/install/) and
+more details about the features.
 
-```
-8080
-```
+## Want to contribute to Conftest?
 
----
+* See [DEVELOPMENT.md](DEVELOPMENT.md) to build and test Conftest itself.
+* See [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
 
-## ▶️ How to Run the Application
-
-### Pull image:
-
-```
-docker pull shreesha369/devops-app:latest
-```
-
-### Run container:
-
-```
-docker run -p 8080:8080 shreesha369/devops-app
-```
-
-### Open in browser:
-
-```
-http://localhost:8080
-```
-
----
-
-## 👥 Team Collaboration Guide
-
-### 🔴 IMPORTANT RULES
-
-* ❌ Do NOT push directly to `main`
-* ✅ Always create a new branch
-* ✅ Raise a Pull Request (PR)
-* ✅ Ensure pipeline passes before merging
-
----
-
-### 🌿 Branch Workflow
-
-```
-git clone <repo-url>
-cd secure-devops-pipeline
-
-git checkout -b feature-yourtask
-```
-
-After changes:
-
-```
-git add .
-git commit -m "your message"
-git push origin feature-yourtask
-```
-
-Then:
-👉 Create Pull Request on GitHub
-
----
-
-## 🔐 For Security Team (P2, P3, P4)
-
-Use this Docker image for scanning/testing:
-
-```
-shreesha369/devops-app:latest
-```
-
-You can:
-
-* Scan image for vulnerabilities
-* Test container security
-* Use in Kubernetes deployment
-
----
-
-## 🧠 Notes
-
-* Application runs on port **8080**
-* Built using **Spring Boot 3.x**
-* Java version: **17**
-* Docker base image: **Eclipse Temurin 17**
-
----
-
-## ✅ Status
-
-✔ CI Pipeline: Working
-✔ Docker Build: Working
-✔ Docker Push: Working
-✔ Image Verified: Working
-
----
-
-## 📌 Maintainer (P1)
-
-* Responsible for CI/CD pipeline
-* Ensures build + Docker integration works
-* Reviews pull requests before merge
+For discussions and questions join us on the [Open Policy Agent Slack](https://slack.openpolicyagent.org/)
+in the `#opa-conftest` channel.
