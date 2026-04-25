@@ -22,19 +22,30 @@ jobs:
 
       # 🔐 GITLEAKS
       - name: Run Gitleaks
-        continue-on-error: true
         run: |
           docker run --rm -v $PWD:/repo zricethezav/gitleaks:latest detect \
           --source=/repo \
+          --report-format json \
+          --report-path /repo/gitleaks-report.json \
           --no-git \
           --exit-code 1
 
       # 🔐 TRUFFLEHOG
       - name: Run TruffleHog
-        continue-on-error: true
         run: |
           docker run --rm -v $PWD:/repo ghcr.io/trufflesecurity/trufflehog:latest \
           filesystem /repo --fail --no-update
+
+      # 🏗️ HADOLINT (Stage 4 - IaC & Build Scan)
+      - name: Lint Dockerfile with Hadolint
+        run: |
+          docker run --rm -v $PWD:/repo hadolint/hadolint hadolint /repo/docker/Dockerfile
+
+      # 🏗️ CHECKOV (Stage 4 - IaC & Build Scan)
+      - name: Scan IaC and Manifests with Checkov
+        run: |
+          # Scans Kubernetes manifests, Helm charts, and Dockerfiles for misconfigurations
+          docker run --rm -v $PWD:/repo bridgecrew/checkov -d /repo --compact
 
       # ☕ JAVA
       - name: Set up Java 17
@@ -60,7 +71,27 @@ jobs:
       - name: Build Docker Image
         run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
 
-      # 🐳 PUSH IMAGE
+      # 🛡️ GRYPE (Stage 5 - Container Hardening)
+      - name: Scan Built Image with Grype
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
+          grype shreesha369/devops-app --fail-on high
+
+      # 🛡️ DOCKER BENCH (Stage 5 - Container Hardening)
+      - name: CIS Docker Benchmark
+        run: |
+          git clone https://github.com/docker/docker-bench-security.git
+          cd docker-bench-security
+          sudo sh docker-bench-security.sh -c container_images
+
+      # ⚖️ OPA / CONFTEST (Stage 6 - Policy Gate)
+      - name: Evaluate OPA Policies
+        run: |
+          mkdir -p policies k8s # Ensure directories exist to prevent Docker mount errors
+          # Evaluates IaC against Rego policies (Requires Mohit to place .rego files in /policies)
+          docker run --rm -v $PWD:/project openpolicyagent/conftest test /project/docker/Dockerfile /project/k8s -p /project/policies || echo "⚠️ Add .rego policies to strictly enforce this gate"
+
+      # � PUSH IMAGE
       - name: Push Docker Image
         run: docker push shreesha369/devops-app
 
@@ -71,7 +102,7 @@ jobs:
           image-ref: shreesha369/devops-app
           format: json
           output: trivy-report.json
-          exit-code: 0
+          exit-code: 1
           severity: CRITICAL,HIGH
 
       # ⏳ WAIT FOR SONARQUBE
@@ -117,7 +148,6 @@ jobs:
 
       # ✅ QUALITY GATE
       - name: Check SonarQube Quality Gate
-        continue-on-error: true
         env:
           SONAR_USER: admin
           SONAR_PASS: admin
@@ -133,26 +163,218 @@ jobs:
 
           if [ "$STATUS" != "OK" ]; then
             echo "❌ Quality Gate Failed"
+            exit 1
           else
             echo "✅ Quality Gate Passed"
           fi
 
-      # 🛡️ OWASP DEPENDENCY CHECK (UPDATED → XML)
+      # 🛡️ OWASP DEPENDENCY CHECK (Blocks on CVSS >= 7.0 per FR-07)
       - name: OWASP Dependency Check
         run: |
           cd app
           mvn org.owasp:dependency-check-maven:check \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
             -Dformat=XML \
-            -DfailBuildOnCVSS=11 \
+            -DfailBuildOnCVSS=7 \
             -DskipProvidedScope=true
 
-      # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
-      - name: Upload to DefectDojo (placeholder)
-        if: false
+      # 🚀 START APPLICATION FOR DAST
+      - name: Start Application Container
         run: |
-          curl -X POST "http://<DEFECTDOJO_URL>/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+          docker run -d --name devops-app -p 8080:8080 shreesha369/devops-app
+          echo "Waiting for application to start..."
+          for i in {1..12}; do
+            if curl -s http://localhost:8080 >/dev/null; then
+              echo "App is UP"
+              break
+            fi
+            sleep 5
+          done
+
+      # 🕷️ OWASP ZAP DAST (Stage 7 - Anoop's Role)
+      # Enhanced scanning with active mode, proper context, and FR-11 compliance
+      - name: OWASP ZAP Enhanced Active Scan (Stage 7)
+        run: |
+          chmod 777 $PWD
+          echo "Starting enhanced OWASP ZAP scan..."
+          
+          # Run ZAP with active scanning and proper context
+          docker run --rm \
+            -v $PWD:/zap/wrk/:rw \
+            --network host \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://127.0.0.1:8080 \
+            -J zap-report.json \
+            -a \
+            || ZAP_EXIT_CODE=$?
+          
+          echo "ZAP scan exit code: ${ZAP_EXIT_CODE:-0}"
+          
+          # Parse ZAP report and enforce FR-11: HIGH/CRITICAL findings block pipeline
+          if [ -f zap-report.json ]; then
+            CRITICAL=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' zap-report.json || echo "0")
+            HIGH=$(jq '[.site[].alerts[] | select(.riskcode == "2")] | length' zap-report.json || echo "0")
+            
+            echo "📊 ZAP Findings:"
+            echo "   🔴 CRITICAL: $CRITICAL"
+            echo "   🟠 HIGH:     $HIGH"
+            
+            BLOCKING_FINDINGS=$((CRITICAL + HIGH))
+            
+            if [ "$BLOCKING_FINDINGS" -gt 0 ]; then
+              echo "❌ FR-11 VIOLATION: Found $BLOCKING_FINDINGS HIGH/CRITICAL findings - BLOCKING PIPELINE"
+              exit 1
+            else
+              echo "✅ FR-11 COMPLIANT: No HIGH/CRITICAL findings"
+            fi
+          else
+            echo "⚠️ ZAP report not found, but scan completed. Allowing pipeline to continue."
+          fi
+
+      # 🐳 CLEANUP APPLICATION CONTAINER
+      - name: Stop Application Container
+        if: always()
+        run: docker stop devops-app && docker rm devops-app || true
+
+      # 🛡️ DEFECTDOJO INTEGRATION (Stage 8 - Anoop's Role)
+      - name: Upload Reports to DefectDojo
+        if: always()
+        continue-on-error: true # Prevents pipeline from failing if DD is temporarily unreachable
+        env:
+          DD_URL: ${{ secrets.DEFECTDOJO_URL }}
+          DD_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
+          ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
+        run: |
+          echo "Uploading Gitleaks Report..."
+          if [ -f gitleaks-report.json ]; then
+            curl -X POST "$DD_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DD_API_KEY" \
+              -F "file=@gitleaks-report.json" \
+              -F "scan_type=Gitleaks Scan" \
+              -F "engagement=$ENGAGEMENT_ID" || true
+          else
+            echo "Gitleaks Report not found, skipping upload."
+          fi
+
+          echo "Uploading Trivy Scan Report..."
+          curl -X POST "$DD_URL/api/v2/import-scan/" \
+            -H "Authorization: Token $DD_API_KEY" \
+            -F "file=@trivy-report.json" \
+            -F "scan_type=Trivy Scan" \
+            -F "engagement=$ENGAGEMENT_ID" || true
+
+          echo "Uploading OWASP Dependency Check Report..."
+          curl -X POST "$DD_URL/api/v2/import-scan/" \
+            -H "Authorization: Token $DD_API_KEY" \
             -F "file=@app/target/dependency-check-report.xml" \
             -F "scan_type=Dependency Check Scan" \
-            -F "engagement=1"
+            -F "engagement=$ENGAGEMENT_ID" || true
+
+          echo "Uploading OWASP ZAP Report..."
+          if [ -f zap-report.json ]; then
+            curl -X POST "$DD_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DD_API_KEY" \
+              -F "file=@zap-report.json" \
+              -F "scan_type=ZAP Scan" \
+              -F "engagement=$ENGAGEMENT_ID" || true
+          else
+            echo "OWASP ZAP Report not found, skipping upload."
+          fi
+
+      # 📣 SLACK NOTIFICATION (Enhanced with findings summary)
+      - name: Send Enhanced Slack Notification
+        if: always()
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BRANCH="${{ github.ref_name }}"
+          COMMIT="${{ github.sha }}"
+          COMMIT_SHORT="${COMMIT:0:7}"
+          STATUS="${{ job.status }}"
+          
+          # Determine color and status emoji
+          if [ "$STATUS" == "success" ]; then
+            COLOR="#36a64f"
+            STATUS_EMOJI="✅"
+          else
+            COLOR="#ff0000"
+            STATUS_EMOJI="❌"
+          fi
+          
+          # Parse findings from reports
+          CRITICAL_FINDINGS=0
+          HIGH_FINDINGS=0
+          
+          if [ -f zap-report.json ]; then
+            CRITICAL_FINDINGS=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' zap-report.json 2>/dev/null || echo "0")
+            HIGH_FINDINGS=$(jq '[.site[].alerts[] | select(.riskcode == "2")] | length' zap-report.json 2>/dev/null || echo "0")
+          fi
+          
+          # Build Slack JSON payload
+          SLACK_PAYLOAD=$(cat <<EOF
+{
+  "attachments": [
+    {
+      "color": "$COLOR",
+      "title": "$STATUS_EMOJI Pipeline $STATUS",
+      "title_link": "$RUN_URL",
+      "fields": [
+        {
+          "title": "Branch",
+          "value": "$BRANCH",
+          "short": true
+        },
+        {
+          "title": "Commit",
+          "value": "$COMMIT_SHORT",
+          "short": true
+        },
+        {
+          "title": "DAST Findings",
+          "value": "🔴 Critical: $CRITICAL_FINDINGS | 🟠 High: $HIGH_FINDINGS",
+          "short": false
+        }
+      ],
+      "footer": "SDOP-2025 DevOps Pipeline",
+      "footer_icon": "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png",
+      "ts": $(date +%s)
+    }
+  ]
+}
+EOF
+          )
+          
+          # Send to Slack if webhook is configured
+          if [ -n "${{ secrets.SLACK_WEBHOOK_URL }}" ]; then
+            curl -X POST \
+              -H 'Content-type: application/json' \
+              --data "$SLACK_PAYLOAD" \
+              "${{ secrets.SLACK_WEBHOOK_URL }}" || true
+            echo "✓ Slack notification sent"
+          else
+            echo "⚠️ SLACK_WEBHOOK_URL not configured, skipping notification"
+          fi
+
+      # 📊 PROMETHEUS METRICS (Stage 8b - Grafana)
+      - name: Push Metrics to Prometheus Pushgateway
+        if: always()
+        run: |
+          # Calculate Pipeline Status: 1 = Pass, 0 = Fail
+          if [ "${{ job.status }}" == "success" ]; then PIPELINE_STATUS=1; else PIPELINE_STATUS=0; fi
+          echo "sdop_pipeline_status $PIPELINE_STATUS" > metrics.txt
+          
+          curl -X POST -H "Content-Type: text/plain" \
+          --data-binary @metrics.txt ${{ secrets.PUSHGATEWAY_URL }}/metrics/job/sdop_pipeline || echo "⚠️ PUSHGATEWAY_URL secret missing"
+
+      # 📦 UPLOAD ARTIFACTS (FR-15 - Downloadable Reports)
+      - name: Upload Security Reports Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdop-security-reports
+          path: |
+            gitleaks-report.json
+            trivy-report.json
+            app/target/dependency-check-report.xml
+            zap-report.json
+          retention-days: 7

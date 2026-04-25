@@ -1,0 +1,526 @@
+PRODUCT REQUIREMENTS DOCUMENT
+Secure DevOps Pipeline with Integrated Security Checks
+Project Code
+SDOP-2025
+Version
+v1.0
+Date
+April 2026
+Duration
+4 Weeks (1 Month)
+Team Size
+4 Members
+Department of CSE (Cyber Security)  |  VI Semester  |  Subject Code: CYL66
+M.S. Ramaiah Institute of Technology, Bangalore
+Guide: Mrs. Shankaramma, Asst. Professor, Dept. of CSE (Cyber Security)
+1. Document Overview
+1.1 Purpose
+This Product Requirements Document (PRD) defines the functional specifications, technical architecture, team responsibilities, acceptance criteria, and delivery timeline for SDOP-2025 — the Secure DevOps Pipeline with Integrated Security Checks. It serves as the authoritative reference for all team members, ensuring alignment on scope, deliverables, and quality standards throughout the one-month build cycle.
+1.2 Project Metadata
+Project Name
+Secure DevOps Pipeline with Integrated Security Checks (SDOP-2025)
+Subject
+Cyber Shield Laboratory Project — CYL66
+Institution
+M.S. Ramaiah Institute of Technology, Bangalore
+Department
+Computer Science & Engineering (Cyber Security Specialisation)
+Semester
+VI Semester, Academic Year 2025–26
+Faculty Guide
+Mrs. Shankaramma, Assistant Professor, Dept. of CSE (Cyber Security)
+Team
+Ananya C (1MS23CY005), Anoop S (1MS23CY006), Mohit Patil (1MS23CY041), Shreesha J Harikant (1MS23CY059)
+Timeline
+4 Weeks — Week 1: Foundation  |  Week 2: Core Stages  |  Week 3: Advanced Stages  |  Week 4: Integration & Reporting
+Tech Stack
+Java / Spring Boot, GitHub Actions, Docker, Kubernetes, Helm, SonarQube, OWASP ZAP, DefectDojo, Grafana
+1.3 Intended Audience
+This document is intended for:
+All four team members as the single source of truth for feature scope and responsibilities
+Faculty guide (Mrs. Shankaramma) as a review and evaluation artefact
+Future maintainers or teams extending the pipeline
+1.4 Revision History
+Version
+Date
+Author
+Description
+v1.0
+April 2026
+Anoop S
+Initial PRD — baseline scope, team roles, timeline
+2. Executive Summary
+Modern software teams have adopted CI/CD pipelines to ship code faster — but security has historically been an afterthought bolted on at the end, like installing an alarm system after a burglary. This structural disconnect means that vulnerabilities born in the developer's editor only surface after deployment, when the cost to fix them is estimated to be 30× higher than at the point of introduction.
+SDOP-2025 solves this by treating every pipeline stage as a mandatory security gate. The analogy is an airport security model: passengers (code commits) must pass through multiple independent checkpoints (SAST, SCA, secret detection, IaC scanning, container hardening, policy enforcement, DAST) before boarding the flight (deployment). Any checkpoint failure grounds the flight immediately, with a clear report on what triggered the hold.
+The project is built on a Java Spring Boot application — deliberately chosen because it mirrors real enterprise environments — and orchestrated through GitHub Actions / GitLab CI, Docker, and Kubernetes (Helm). Findings are centralised in DefectDojo and visualised via Grafana dashboards, giving both developers and auditors a single pane of glass for security posture.
+Delivered by a four-member team in four weeks, SDOP-2025 demonstrates that shift-left security is not just a theoretical ideal but a concrete, reproducible engineering practice achievable at academic scale.
+3. Problem Statement & Motivation
+3.1 Core Problem
+Security in most CI/CD workflows exists as a final audit rather than a pipeline-native enforcement mechanism. Tools like SAST scanners and DAST proxies exist in isolation — they are not wired to block the pipeline, their output is not centralised, and feedback to developers arrives too late for low-cost remediation. The result is a systemic vulnerability introduction pattern: hardcoded credentials, CVE-laden dependencies, misconfigured Kubernetes manifests, and non-compliant container images all reach production before any security team reviews them.
+3.2 Research-Identified Gaps
+Gap
+Explanation
+Tool Isolation
+SAST, DAST, and SCA tools operate independently — no unified enforcement pipeline exists in most academic or small-team environments.
+Late Vulnerability Detection
+Findings surface post-deployment where remediation cost is 30× higher than at the code-commit stage.
+Missing Policy Gates
+Few systems enforce automated pipeline blocking based on CVSS severity thresholds. Most generate reports that humans must manually act on.
+Incomplete Coverage
+Published research focuses on SAST/DAST only; IaC security, secret detection, container hardening, and policy-as-code are routinely absent.
+Poor Feedback Loop
+Developers receive no real-time, actionable feedback within their normal workflow, forcing high context-switch cost to act on findings.
+Cost & Complexity
+Enterprise DevSecOps platforms (Snyk Enterprise, Veracode) are prohibitively expensive and over-engineered for academic or startup contexts.
+3.3 Why This Problem Matters for Our Context
+As CSE Cyber Security students, the pipeline we build represents exactly the kind of system we will be asked to design, audit, or extend in industry. A working SDOP-2025 demonstrates not just academic competency but practical engineering fluency across the DevSecOps stack — making it directly relevant to placement interviews, portfolio projects, and real-world assignments at companies like HPE, Atlassian, and Adobe.
+4. Project Objectives
+The four primary objectives map directly to the four research gaps prioritised in the literature survey:
+#
+Objective
+Success Definition
+O-1
+Shift-Left Security Integration
+Security scans execute on every git push, before any build artifact is produced. Zero manual trigger required.
+O-2
+Automated Policy Enforcement Gates
+Pipeline execution halts automatically for any finding with CVSS >= 7.0 (HIGH/CRITICAL). No human intervention needed to enforce the gate.
+O-3
+Secure Build Artifact Assurance
+Docker images pass CIS Docker Benchmark at >= 80% compliance. Kubernetes manifests pass Checkov/Kube-score without privilege escalation violations.
+O-4
+Centralised Monitoring & Developer Feedback
+All scan findings aggregate in DefectDojo. Grafana dashboard is live. Slack notification fires within 60 seconds of any pipeline failure with remediation guidance.
+5. Scope
+5.1 In Scope
+Full 8-stage sequential CI/CD pipeline on a Java Spring Boot sample application
+GitHub Actions / GitLab CI as the orchestration layer
+All security tooling listed in Section 7 (Tools & Technologies)
+Docker containerisation and Kubernetes (Helm) deployment manifests
+DefectDojo integration for centralised finding management
+Grafana + Prometheus dashboard for pipeline KPIs
+Slack webhook notifications for pipeline failures
+Documentation: this PRD, architecture diagram, tool configuration guide, and final report
+5.2 Out of Scope
+Production cloud deployment (AWS/GCP/Azure) — sandboxed local/lab environment is sufficient
+Mobile or frontend application development
+SOAR (Security Orchestration, Automation & Response) integrations
+Custom SAST rule authoring — default rulesets of chosen tools are used
+Pen testing beyond automated DAST scope
+5.3 Assumptions
+Team members have access to local machines capable of running Docker and Minikube
+GitHub or GitLab account is available for CI/CD pipeline hosting
+All tools used are open-source or have free tiers adequate for academic use
+The Spring Boot application used is a representative demo app (e.g., Spring PetClinic or equivalent)
+6. System Architecture & Pipeline Design
+6.1 Architecture Philosophy: Sequential Security Gate Model
+The pipeline is designed as a sequential gate model — analogous to an assembly line quality check, where each station must pass before the product moves forward. Unlike parallel scanning models (faster but weaker enforcement), every stage in SDOP-2025 is a blocking checkpoint. A failure at Stage 2 (SAST) terminates the pipeline immediately, preventing wasted compute and, more importantly, preventing a false sense of security from partial completion.
+6.2 Pipeline Stages — Detailed Specification
+Stage
+Name
+Tools
+What It Checks
+Gate Condition (Fail = Block)
+1
+Secret Detection (Pre-Commit)
+Gitleaks, TruffleHog
+Source code + git history for credentials, API keys, tokens
+Any secret pattern detected in current diff or git history
+2
+SAST
+SonarQube, SpotBugs
+AST-level: injection flaws, insecure deserialization, weak crypto — mapped to OWASP Top 10
+Any issue with severity MAJOR or above (SonarQube Quality Gate = FAILED)
+3
+SCA / Dependency Scan
+OWASP Dependency-Check, Trivy
+Third-party libraries vs. NVD CVE database
+Any CVE with CVSS >= 7.0 found in transitive or direct dependency
+4
+IaC & Build Scan
+Hadolint, Checkov, Kube-score
+Dockerfile linting; Kubernetes manifests & Helm charts for privilege escalation, missing resource limits
+Any HIGH severity IaC misconfiguration or Dockerfile best-practice violation
+5
+Container Image Hardening
+Grype, Docker Bench
+Built image vs. CIS Docker Benchmark
+Image compliance score < 80% on CIS benchmark
+6
+Policy Gate (OPA)
+OPA / Conftest (Rego)
+Binary policy: non-root user, resource limits, approved registries only
+Any Rego policy evaluation returns DENY
+7
+DAST
+OWASP ZAP
+Running application in sandboxed env: XSS, CSRF, auth flaws — unreachable by static tools
+Any OWASP ZAP alert with risk level HIGH or CRITICAL
+8
+Reporting & Notification
+DefectDojo, Grafana, Prometheus, Slack
+Aggregate all findings; surface KPIs; deliver developer notifications
+Non-blocking (reporting stage — pipeline has already passed all gates)
+6.3 Data Flow Summary
+Git Push / Pull Request  →  [Stage 1: Secret Detection]  →  [Stage 2: SAST]  →  [Stage 3: SCA]  →  [Stage 4: IaC Scan]  →  Build Docker Image  →  [Stage 5: Container Hardening]  →  [Stage 6: Policy Gate]  →  Deploy to Sandbox  →  [Stage 7: DAST]  →  [Stage 8: Report & Notify]  →  Promote to Production
+7. Tools & Technologies
+Category
+Tool(s)
+Rationale
+Backend App
+Java 17 + Spring Boot 3.x
+Mirrors real enterprise environment; team's primary language; rich SAST rule coverage for Java in SonarQube
+CI/CD Orchestration
+GitHub Actions / GitLab CI
+Industry-standard; YAML-based pipelines; native Docker support; free tier adequate for this project
+Containerisation
+Docker
+Universal container standard; enables reproducible builds and isolation needed for DAST sandbox
+Orchestration / Deploy
+Kubernetes + Helm
+Industry standard for container orchestration; Helm charts enable parameterised, version-controlled deployments; aligns with HPE internship context
+Secret Detection
+Gitleaks, TruffleHog
+Complementary tools: Gitleaks is fast for current diffs; TruffleHog excels at deep git-history entropy scanning
+SAST
+SonarQube, SpotBugs
+SonarQube provides quality gates + OWASP mapping; SpotBugs adds bytecode-level Java bug pattern detection (e.g., null pointer, SQL injection via FindSecBugs plugin)
+SCA
+OWASP Dependency-Check, Trivy
+OWASP DC is the gold standard for Java CVE scanning; Trivy adds multi-layer coverage (OS packages + application libraries) in container context
+IaC Security
+Hadolint, Checkov, Kube-score
+Hadolint: Dockerfile best-practice linting. Checkov: Terraform/K8s misconfiguration detection. Kube-score: Kubernetes manifest scoring with CIS benchmarks
+Container Hardening
+Grype, Docker Bench for Security
+Grype: fast vulnerability scanner for container images (better accuracy than Trivy for final image check). Docker Bench: CIS Docker Benchmark compliance automation
+Policy-as-Code
+OPA (Open Policy Agent) + Conftest
+Rego language enables expressive, auditable policies. Conftest integrates OPA into CI/CD natively. Policy becomes version-controlled code — not tribal knowledge
+DAST
+OWASP ZAP
+Industry standard open-source DAST tool; active scanning capability; CI/CD integration via ZAP Automation Framework; detects runtime vulnerabilities invisible to static tools
+Finding Management
+DefectDojo
+Open-source vulnerability management platform; aggregates findings from multiple tools; tracks remediation lifecycle; maps to CWE/CVE/OWASP
+Monitoring / Dashboards
+Grafana + Prometheus
+Grafana renders pipeline KPI dashboards; Prometheus scrapes metrics (pipeline pass rate, mean time to detect, critical findings trend)
+Notifications
+Slack Webhooks
+Real-time developer feedback on pipeline failures; webhook payload includes failing stage, severity, and direct DefectDojo link for remediation
+8. Functional Requirements
+8.1 Pipeline Trigger Requirements
+FR-01: The pipeline MUST trigger automatically on every git push to any branch
+FR-02: The pipeline MUST trigger automatically on every Pull Request (PR) / Merge Request (MR) creation or update
+FR-03: No stage may be skipped, including for hotfix branches — all 8 stages are mandatory
+FR-04: The pipeline MUST complete all pre-build stages (1–4) before a Docker image is built
+8.2 Security Gate Requirements
+FR-05: Stage 1 — Any secret pattern match (entropy-based or regex) MUST fail the pipeline
+FR-06: Stage 2 — SonarQube Quality Gate = FAILED status MUST fail the pipeline
+FR-07: Stage 3 — Any CVE with CVSS >= 7.0 in direct or transitive dependency MUST fail the pipeline
+FR-08: Stage 4 — Any Checkov HIGH severity IaC finding or Hadolint DL3/DL4 rule violation MUST fail the pipeline
+FR-09: Stage 5 — Docker image CIS benchmark compliance < 80% MUST fail the pipeline
+FR-10: Stage 6 — Any OPA Rego policy DENY evaluation MUST fail the pipeline; at minimum the following policies are enforced:
+Container must run as non-root user (UID != 0)
+CPU and memory resource limits must be set on all containers
+Only images from approved registries (Docker Hub official, GHCR) are permitted
+FR-11: Stage 7 — Any OWASP ZAP alert rated HIGH or CRITICAL MUST fail the pipeline
+8.3 Reporting Requirements
+FR-12: All scan findings from all stages MUST be imported into DefectDojo automatically via API
+FR-13: Grafana dashboard MUST display: total pipeline runs, pass/fail rate, critical finding count per run, mean time to detect (MTTD), and per-stage failure frequency
+FR-14: Slack notification MUST fire within 60 seconds of any pipeline stage failure, containing: failing stage name, severity, finding summary, and link to DefectDojo finding
+FR-15: Each pipeline run MUST produce a unified HTML/JSON security report artifact downloadable from the CI/CD platform
+9. Non-Functional Requirements
+Category
+Metric / Target
+Rationale
+Performance
+Pipeline complete in < 15 min
+Stages 1–3 (pre-build) must complete in < 5 min to maintain developer velocity. Total pipeline target: 15 min or less.
+Reliability
+Pipeline success rate >= 95% on clean commits
+False positive rate from security tools must be low enough that the pipeline is not perceived as flaky by developers.
+Reproducibility
+100% reproducible builds
+All tool versions must be pinned in configuration files. Same commit must produce identical scan results across runs.
+Security (Pipeline Itself)
+No secrets in pipeline config files
+All credentials (SonarQube tokens, Slack webhook URL, DefectDojo API key) must be stored as CI/CD secrets/environment variables — never hardcoded.
+Maintainability
+Adding a new policy in < 30 min
+OPA Rego policies must be modular. Adding a new enforcement rule should require only adding a .rego file — no pipeline YAML changes.
+Observability
+Dashboard refresh < 30 sec
+Grafana panels must reflect latest pipeline run data within 30 seconds of pipeline completion.
+Scalability
+Supports >= 3 parallel PR runs
+Pipeline must not serialize on shared resources. Docker containers per stage ensure isolation and concurrency.
+10. Team Roles & Responsibilities
+The team of four is structured around natural ownership zones, with each member responsible for one architectural layer. Cross-team code reviews are mandatory for all pipeline YAML and Rego policy files.
+Member
+Roll No.
+Primary Ownership
+Secondary Support
+Shreesha 
+1MS23CY059
+CI/CD Pipeline Orchestration (GitHub Actions / GitLab CI YAML), Docker, Kubernetes Helm Charts, Pipeline integration of all stages
+SCA tooling (Stage 3), IaC scanning (Stage 4)
+Ananya C
+1MS23CY005
+SAST Stage (SonarQube + SpotBugs configuration, Quality Gate definition, OWASP Top 10 rule mapping), Secret Detection (Stage 1)
+DefectDojo setup, documentation review
+Mohit Patil
+1MS23CY041
+Container Security (Stage 5: Grype + Docker Bench, CIS benchmark config), Policy-as-Code (Stage 6: OPA/Conftest Rego policies)
+DAST support (Stage 7), Grafana dashboard
+Anoop S S
+1MS23CY006
+DAST (Stage 7: OWASP ZAP Automation Framework), Reporting & Notifications (Stage 8: DefectDojo API integration, Grafana, Slack webhooks)
+IaC scanning support (Checkov/Kube-score), Final report & presentation
+10.1 Collaboration Norms
+Daily 15-minute sync (async Slack update if in-person not feasible)
+All code merged via PR with at least one peer review
+Pipeline YAML and Rego policies require review from both Anoop (pipeline owner) and Mohit (policy owner)
+Weekly demo to faculty guide at end of each week
+11. Project Timeline — 4-Week Sprint Plan
+Week 1 (Days 1–7): Foundation & Skeleton Pipeline
+Day(s)
+Task
+Owner(s)
+1–2
+Set up GitHub/GitLab repo, branch protection rules, CI/CD runner environment, Spring Boot sample app commit
+Anoop, All
+2–3
+Integrate Gitleaks + TruffleHog (Stage 1) — validate with test secrets commit
+Ananya
+3–4
+Stand up SonarQube server (Docker), configure Spring Boot project, define Quality Gate rules (Stage 2)
+Ananya
+4–5
+Configure OWASP Dependency-Check Maven plugin + Trivy for SCA (Stage 3), validate CVE threshold gate
+Anoop, Ananya
+5–7
+Write skeleton pipeline YAML with all 8 stage stubs; document environment variable / secret setup; Docker build verified end-to-end
+Anoop
+7
+Week 1 demo to Mrs. Shankaramma: pipeline skeleton running, Stages 1–3 live
+All
+Week 2 (Days 8–14): Core Security Stages
+Day(s)
+Task
+Owner(s)
+8–9
+Hadolint Dockerfile linting integration (Stage 4a) — introduce intentional violations, verify blocking
+Anoop
+9–10
+Checkov + Kube-score integration for Kubernetes manifests & Helm charts (Stage 4b)
+Anoop, Mohit
+10–11
+Grype vulnerability scanning on built Docker image (Stage 5a)
+Mohit
+11–12
+Docker Bench for Security integration, CIS compliance threshold logic (Stage 5b)
+Mohit
+12–13
+OPA/Conftest Rego policies authored and tested: non-root, resource limits, approved registries (Stage 6)
+Mohit
+13–14
+Integration test: full pipeline run from commit to Stage 6 pass/fail. Fix any sequencing bugs.
+All
+Week 3 (Days 15–21): DAST, Reporting & Monitoring
+Day(s)
+Task
+Owner(s)
+15–17
+OWASP ZAP Automation Framework setup; configure active scan context for Spring Boot app; sandbox deployment via Minikube (Stage 7)
+Shreesha
+17–18
+DefectDojo deployment (Docker), API integration — auto-import findings from all stages via pipeline step (Stage 8a)
+Shreesha, Ananya
+18–19
+Grafana + Prometheus setup; define metrics and panels: pass rate, MTTD, critical findings trend (Stage 8b)
+Shreesha, Mohit
+19–20
+Slack webhook integration — failure notification payload with stage, severity, DefectDojo link (Stage 8c)
+Shreesha
+20–21
+End-to-end integration test: introduce a critical CVE, a secret, and a DAST finding — verify all 3 block at correct stage and appear in DefectDojo + Slack
+All
+Week 4 (Days 22–28): Hardening, Documentation & Delivery
+Day(s)
+Task
+Owner(s)
+22–23
+Pipeline performance tuning — achieve < 15 min total runtime; parallelise non-sequential tasks where safe
+Anoop
+23–24
+False positive audit — review SonarQube, Checkov, ZAP findings; adjust thresholds/suppression rules; document reasoning
+Ananya, Mohit
+24–25
+Final project report writing: architecture, tool selection rationale, test results, KPI screenshots
+Shreesha + All
+25–26
+Presentation slide deck prep (CyberShield Phase 1 template updates with real results and screenshots)
+All
+26–27
+Peer review of all documentation and code; fix remaining issues; final pipeline run recorded as demo video
+All
+28
+Final submission and presentation to Mrs. Shankaramma
+All
+12. Acceptance Criteria
+The project is considered complete when ALL of the following criteria are verified:
+AC#
+Acceptance Criterion
+Verification Method
+Owner
+AC-01
+Pipeline triggers automatically on every git push to main/dev branch with no manual intervention
+Automated test commit
+Anoop
+AC-02
+A commit containing a hardcoded API key fails Stage 1 and blocks pipeline execution
+Test commit with fake key
+Ananya
+AC-03
+Introducing an OWASP Top 10 vulnerability (e.g., SQL injection) in Java code fails Stage 2 via SonarQube Quality Gate
+Introduce intentional vuln
+Ananya
+AC-04
+Adding a dependency with a known CVE >= 7.0 (e.g., Log4Shell-era library) fails Stage 3 and identifies the CVE by ID
+Test with vulnerable dep
+Anoop
+AC-05
+A Kubernetes manifest with a container running as root (UID 0) fails the OPA policy gate at Stage 6
+Test manifest
+Mohit
+AC-06
+A clean commit (no deliberate vulnerabilities) passes all 8 stages and the Docker image is successfully deployed to Minikube sandbox
+End-to-end demo run
+All
+AC-07
+DefectDojo shows imported findings from at least 5 different tool integrations after a failed pipeline run
+DefectDojo UI review
+Shreesha
+AC-08
+Grafana dashboard is live and displays pass/fail rate, critical findings count, and MTTD metrics
+Live dashboard demo
+Shreesha
+AC-09
+Slack notification arrives within 60 seconds of any pipeline failure with correct stage name and DefectDojo link
+Timed test notification
+Shreesha
+AC-10
+Pipeline total runtime for a clean commit does not exceed 15 minutes end-to-end
+Timed pipeline run
+Anoop
+13. Risk Register
+Risk
+Likelihood
+Impact
+Mitigation
+SonarQube server resource-heavy on local machine
+High
+Medium
+Use SonarCloud free tier as alternative; pre-allocate 4GB RAM for Docker host
+OWASP ZAP scan takes too long (> 10 min for DAST)
+Medium
+High
+Configure ZAP Automation Framework with targeted context (limit scope to app routes); use ZAP Ajax Spider only for registered routes
+High false positive rate blocks pipeline on valid code
+Medium
+High
+Week 4 dedicated false positive audit; document suppression rules with justification; use CVSS 7.0 threshold (not 4.0) to reduce noise
+DefectDojo API changes break import step
+Low
+Medium
+Pin DefectDojo Docker image version; test import API in Week 3 with buffer before Week 4 hardening
+Team member unavailability mid-project
+Low
+High
+Each member documents their configuration daily in a shared Notion/README; cross-training via code review ensures no single point of failure
+Kubernetes/Minikube environment instability
+Medium
+Medium
+Docker Compose fallback environment prepared for DAST sandbox if Minikube proves unstable; Helm charts tested on k3d as alternative
+14. Deliverables Checklist
+Deliverable
+Format
+Due (Week)
+Working CI/CD pipeline YAML (GitHub Actions / GitLab CI)
+Code (YAML)
+Week 1–3
+Spring Boot demo application (source)
+Java/Maven
+Week 1
+All tool configuration files (SonarQube, Checkov, ZAP, OPA)
+YAML/JSON/Rego
+Week 2–3
+Helm charts for Kubernetes deployment
+YAML
+Week 1–2
+DefectDojo instance with imported scan findings
+Live demo
+Week 3
+Grafana dashboard (live + screenshots)
+Live demo + PNG
+Week 3
+This PRD document (v1.0)
+DOCX/PDF
+Week 1 (done)
+Final project report (architecture, results, analysis)
+DOCX/PDF
+Week 4
+Presentation slide deck (CyberShield template, updated)
+PPTX
+Week 4
+Demo video recording (pipeline run + dashboard walkthrough)
+MP4
+Week 4
+15. Glossary
+Term
+Definition
+CI/CD
+Continuous Integration / Continuous Deployment — automated pipeline for building, testing, and deploying software on each code change
+SAST
+Static Application Security Testing — analysis of source code or bytecode without execution to detect vulnerabilities
+DAST
+Dynamic Application Security Testing — testing a running application by sending malicious inputs to detect runtime vulnerabilities
+SCA
+Software Composition Analysis — scanning third-party libraries and dependencies for known CVEs
+IaC
+Infrastructure-as-Code — managing and provisioning infrastructure via machine-readable configuration files (e.g., Dockerfiles, K8s manifests, Helm charts)
+CVSS
+Common Vulnerability Scoring System — a 0–10 score for vulnerability severity. >= 7.0 = HIGH; >= 9.0 = CRITICAL
+OPA
+Open Policy Agent — an open-source policy engine that evaluates Rego-language policies against JSON/YAML inputs
+Shift-Left
+The practice of moving security activities earlier (left) in the SDLC — from deployment-time audits to development-time enforcement
+CIS Benchmark
+Center for Internet Security hardening guidelines — industry-standard configuration baselines for Docker, Kubernetes, OS, etc.
+DefectDojo
+An open-source vulnerability management platform that aggregates findings from multiple security tools and tracks remediation
+Helm
+Kubernetes package manager — uses charts (parameterised YAML templates) to define, install, and upgrade Kubernetes applications
+Rego
+The policy language used by OPA — a declarative logic language for expressing access control and compliance policies
+16. Document Sign-Off
+Name
+Role
+Signature
+Date
+Anoop S
+CI/CD Lead
+April 2026
+Ananya C
+Security Analysis Lead
+April 2026
+Mohit Patil
+Container & Policy Lead
+April 2026
+Shreesha J Harikant
+DAST & Reporting Lead
+April 2026
+Mrs. Shankaramma
+Faculty Guide

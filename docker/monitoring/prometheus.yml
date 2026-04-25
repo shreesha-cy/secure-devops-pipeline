@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # 📊 Prometheus itself (self-monitoring)
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
+
+  # 🍃 Spring Boot Application (if running on host machine)
+  - job_name: 'spring-actuator'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['host.docker.internal:8080']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # NOTE: DefectDojo metrics endpoint is not enabled by default
+  # To use DefectDojo metrics, configure environment variable: DD_ENABLE_PROMETHEUS_EXPORT=True
+  # For now, we focus on pipeline metrics and Spring Boot metrics
+

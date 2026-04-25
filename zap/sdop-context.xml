@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Context id="1" name="SDOP-2025 Spring Boot App">
+  <!-- ZAP Context Configuration for Spring Boot PetClinic Application -->
+  <!-- This context defines the target URL and scope for ZAP scanning -->
+
+  <!-- Include in scope: All Spring Boot endpoints -->
+  <IncludeInContext>
+    <Include>http://127.0.0.1:8080.*</Include>
+    <Include>http://localhost:8080.*</Include>
+  </IncludeInContext>
+
+  <!-- Exclude from scope: Static resources and health endpoints -->
+  <ExcludeFromContext>
+    <Exclude>.*\.(js|css|jpg|jpeg|png|gif|woff|woff2|ttf|eot)$</Exclude>
+    <Exclude>.*/static/.*</Exclude>
+    <Exclude>.*/webjars/.*</Exclude>
+    <Exclude>.*/actuator/.*</Exclude>
+  </ExcludeFromContext>
+
+  <!-- Technology detection hints -->
+  <Technologies>
+    <Technology name="Java" version="17" />
+    <Technology name="Spring Framework" />
+    <Technology name="Spring Boot" version="3.x" />
+  </Technologies>
+
+  <!-- Authentication (if needed for login endpoints) -->
+  <Authentication type="form">
+    <!-- Configure login form if Spring Boot app requires authentication -->
+    <!-- Example for typical login form:
+    <LoginURL>http://127.0.0.1:8080/login</LoginURL>
+    <LoginRequestData>username={%username%}&password={%password%}</LoginRequestData>
+    -->
+  </Authentication>
+
+  <!-- Session management -->
+  <SessionManagement type="cookie">
+    <!-- Default cookie-based session management -->
+  </SessionManagement>
+
+  <!-- User agents and headers -->
+  <CustomParameters>
+    <Parameter name="User-Agent" value="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" />
+  </CustomParameters>
+
+</Context>

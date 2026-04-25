@@ -1,0 +1,179 @@
+services:
+  # 📊 PROMETHEUS - Time-series metrics database
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # 📈 GRAFANA - Dashboard & visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - monitoring
+
+  # 🗄️ PostgreSQL - DefectDojo database
+  postgres:
+    image: postgres:15-alpine
+    container_name: defectdojo-postgres
+    environment:
+      - POSTGRES_DB=defectdojo
+      - POSTGRES_USER=defectdojo
+      - POSTGRES_PASSWORD=defectdojo_password_change_me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U defectdojo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 🛡️ DEFECTDOJO - Vulnerability management platform
+  # Note: Using specific version to avoid image pull issues
+  # 🛡️ DEFECTDOJO - Vulnerability management platform
+  defectdojo:
+    image: defectdojo/defectdojo-django:2.26.0
+    container_name: defectdojo-django
+    environment:
+      - DD_DATABASE_ENGINE=django.db.backends.postgresql
+      - DD_DATABASE_NAME=defectdojo
+      - DD_DATABASE_USER=defectdojo
+      - DD_DATABASE_PASSWORD=defectdojo_password_change_me
+      - DD_DATABASE_HOST=postgres
+      - DD_DATABASE_PORT=5432
+      - DD_CELERY_BROKER_URL=redis://redis:6379/0
+      - DD_CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DD_SECRET_KEY=change-me-to-a-random-secret-key-in-production
+      - DD_DEBUG=False
+      - DD_ALLOWED_HOSTS=*
+      - DD_ADMIN_USER=admin
+      - DD_ADMIN_PASSWORD=admin123
+      - DD_ADMIN_EMAIL=admin@defectdojo.local
+      - DD_USE_CELERY=True
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - monitoring
+    volumes:
+      - defectdojo_data:/app/var
+      - defectdojo_static:/app/staticfiles
+
+  # DefectDojo Celery Worker
+  defectdojo-worker:
+    image: defectdojo/defectdojo-django:2.26.0
+    container_name: defectdojo-worker
+    entrypoint: ["/entrypoint-celery-worker.sh"]
+    environment:
+      - DD_DATABASE_ENGINE=django.db.backends.postgresql
+      - DD_DATABASE_NAME=defectdojo
+      - DD_DATABASE_USER=defectdojo
+      - DD_DATABASE_PASSWORD=defectdojo_password_change_me
+      - DD_DATABASE_HOST=postgres
+      - DD_DATABASE_PORT=5432
+      - DD_CELERY_BROKER_URL=redis://redis:6379/0
+      - DD_CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DD_SECRET_KEY=change-me-to-a-random-secret-key-in-production
+    depends_on:
+      - defectdojo
+    networks:
+      - monitoring
+    volumes:
+      - defectdojo_data:/app/var
+
+  # DefectDojo NGINX
+  nginx:
+    image: defectdojo/defectdojo-nginx:2.26.0
+    container_name: defectdojo-nginx
+    ports:
+      - "8000:8080"
+    environment:
+      - DD_UWSGI_HOST=defectdojo
+      - DD_UWSGI_PORT=3031
+    depends_on:
+      - defectdojo
+    networks:
+      - monitoring
+    volumes:
+      - defectdojo_static:/app/staticfiles:ro
+
+  # DefectDojo Initializer (Runs migrations and creates admin user)
+  initializer:
+    image: defectdojo/defectdojo-django:2.26.0
+    container_name: defectdojo-initializer
+    entrypoint: ["/entrypoint-initializer.sh"]
+    environment:
+      - DD_DATABASE_ENGINE=django.db.backends.postgresql
+      - DD_DATABASE_NAME=defectdojo
+      - DD_DATABASE_USER=defectdojo
+      - DD_DATABASE_PASSWORD=defectdojo_password_change_me
+      - DD_DATABASE_HOST=postgres
+      - DD_DATABASE_PORT=5432
+      - DD_CELERY_BROKER_URL=redis://redis:6379/0
+      - DD_CELERY_RESULT_BACKEND=redis://redis:6379/1
+      - DD_SECRET_KEY=change-me-to-a-random-secret-key-in-production
+      - DD_ADMIN_USER=admin
+      - DD_ADMIN_PASSWORD=admin123
+      - DD_ADMIN_EMAIL=admin@defectdojo.local
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - monitoring
+    volumes:
+      - defectdojo_data:/app/var
+      - defectdojo_static:/app/staticfiles
+
+  redis:
+    image: redis:7-alpine
+    container_name: defectdojo-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - monitoring
+    volumes:
+      - redis_data:/data
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  postgres_data:
+  defectdojo_data:
+  defectdojo_static:
+  redis_data:
+
+networks:
+  monitoring:
+    driver: bridge
