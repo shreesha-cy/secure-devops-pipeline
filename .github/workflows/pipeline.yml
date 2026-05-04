@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - '**' # Triggers the pipeline on ALL branches for testing
 
 jobs:
   build:
