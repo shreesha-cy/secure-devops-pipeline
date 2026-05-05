@@ -6,6 +6,11 @@ on:
       - main
       - '**' # Triggers the pipeline on ALL branches for testing
 
+permissions:
+  contents: read
+  security-events: write
+  id-token: write
+
 jobs:
   build:
     runs-on: self-hosted

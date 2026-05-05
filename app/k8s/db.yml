@@ -40,9 +40,21 @@ spec:
       labels:
         app: demo-db
     spec:
+      securityContext:
+        runAsUser: 999
+        runAsNonRoot: true
+        fsGroup: 999
       containers:
         - image: postgres:18.3
           name: postgresql
+          securityContext:
+            runAsUser: 999
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: POSTGRES_USER
               valueFrom:
@@ -65,9 +77,15 @@ spec:
           livenessProbe:
             tcpSocket:
               port: postgresql
+            initialDelaySeconds: 30
+            periodSeconds: 10
           readinessProbe:
             tcpSocket:
               port: postgresql
+            initialDelaySeconds: 10
+            periodSeconds: 5
           startupProbe:
             tcpSocket:
               port: postgresql
+            initialDelaySeconds: 0
+            periodSeconds: 10

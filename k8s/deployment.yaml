@@ -8,6 +8,18 @@ spec:
       image: docker.io/library/nginx
       securityContext:
         runAsUser: 1000
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      readinessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 10
+        periodSeconds: 5
       resources:
         limits:
           cpu: "500m"
