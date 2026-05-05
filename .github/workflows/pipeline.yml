@@ -70,13 +70,13 @@ jobs:
 
       # 🐳 BUILD IMAGE
       - name: Build Docker Image
-        run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app -f docker/Dockerfile .
 
       # 🛡️ GRYPE (Stage 5 - Container Hardening)
       - name: Scan Built Image with Grype
         run: |
           curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
-          grype shreesha369/devops-app --fail-on high
+          grype ${{ secrets.DOCKER_USERNAME }}/devops-app --fail-on high
 
       # 🛡️ DOCKER BENCH (Stage 5 - Container Hardening)
       - name: CIS Docker Benchmark
@@ -94,13 +94,13 @@ jobs:
 
       # � PUSH IMAGE
       - name: Push Docker Image
-        run: docker push shreesha369/devops-app
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/devops-app
 
       # 🛡️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: shreesha369/devops-app
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/devops-app
           format: json
           output: trivy-report.json
           exit-code: 1
@@ -182,7 +182,7 @@ jobs:
       # 🚀 START APPLICATION FOR DAST
       - name: Start Application Container
         run: |
-          docker run -d --name devops-app -p 8080:8080 shreesha369/devops-app
+          docker run -d --name devops-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/devops-app
           echo "Waiting for application to start..."
           for i in {1..12}; do
             if curl -s http://localhost:8080 >/dev/null; then
