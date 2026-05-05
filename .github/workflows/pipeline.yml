@@ -147,6 +147,17 @@ jobs:
             -DfailBuildOnCVSS=11 \
             -DskipProvidedScope=true
 
+      # 🛡️ CHECKOV SCAN
+      - name: Run Checkov Scan
+        continue-on-error: true
+        run: |
+          docker run --rm -v $PWD:/app bridgecrewio/checkov:latest \
+            --framework kubernetes,dockerfile,github_actions \
+            --directory /app \
+            --output cli \
+            --output json \
+            --output-file-path console,checkov-report.json
+
       # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
       - name: Upload to DefectDojo (placeholder)
         if: false

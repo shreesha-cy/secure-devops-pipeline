@@ -2,12 +2,22 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: test
+  namespace: secure-devops
 spec:
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10000
   containers:
     - name: app
-      image: docker.io/library/nginx
+      image: docker.io/library/nginx:stable@sha256:1a9ab83e2892b75773978e8d91f42a7a2a0d8bb704959a51ff17c0377481973d
       securityContext:
-        runAsUser: 1000
+        runAsUser: 10000
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
       resources:
         limits:
           cpu: "500m"
