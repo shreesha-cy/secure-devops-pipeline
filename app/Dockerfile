@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY build/libs/*.jar app.jar
 
-RUN useradd -m -u 1000 -s /sbin/nologin appuser && chown -R appuser:appuser /app
+RUN useradd -m -u 10001 -s /sbin/nologin appuser && chown -R appuser:appuser /app
 
 USER appuser
 
