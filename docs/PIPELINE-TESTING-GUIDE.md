@@ -448,8 +448,9 @@ curl http://127.0.0.1:8080
 
 ```bash
 # Test API token
-curl -H "Authorization: Token 0be0b32791237a3b897ad375582d593d6e0eaaf7" \
+curl -H "Authorization: Token <your_api_token>" \
   http://localhost:8000/api/v2/engagements/
+
 
 # If 401 Unauthorized, regenerate token in DefectDojo UI
 ```
@@ -520,4 +521,3 @@ After successful test run:
 ---
 
 **Ready? Let's go!** 🚀
-
