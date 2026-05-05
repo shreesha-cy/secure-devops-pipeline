@@ -1,8 +1,15 @@
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: secure-devops
+
+---
+apiVersion: v1
 kind: Service
 metadata:
   name: petclinic
+  namespace: secure-devops
 spec:
   type: NodePort
   ports:
@@ -16,6 +23,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: petclinic
+  namespace: secure-devops
   labels:
     app: petclinic
 spec:
@@ -28,13 +36,24 @@ spec:
       labels:
         app: petclinic
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10000
+        fsGroup: 10000
       containers:
         - name: workload
-          image: shreesha369/devops-app
+          image: shreesha369/devops-app@sha256:f8990ca480a97c2a149e45b7567ed5bccb9c983bd647dba856f6f07409b3c31e
+          securityContext:
+            runAsUser: 10000
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           env:
             - name: SPRING_PROFILES_ACTIVE
               value: postgres
-             
 
             - name: SPRING_DATASOURCE_URL
               value: jdbc:postgresql://postgres:5432/petclinic
@@ -45,7 +64,6 @@ spec:
             - name: SPRING_DATASOURCE_PASSWORD
               value: postgres
 
-         
             - name: SPRING_APPLICATION_JSON
               value: |
                 {
@@ -62,4 +80,3 @@ spec:
             httpGet:
               path: /readyz
               port: http
-         
