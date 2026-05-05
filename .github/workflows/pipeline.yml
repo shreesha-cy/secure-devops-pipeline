@@ -265,49 +265,90 @@ jobs:
           DD_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
           ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
         run: |
-          echo "Uploading Gitleaks Report..."
-          if [ -f gitleaks-report.json ]; then
-            curl -X POST "$DD_URL/api/v2/import-scan/" \
-              -H "Authorization: Token $DD_API_KEY" \
-              -F "file=@gitleaks-report.json" \
-              -F "scan_type=Gitleaks Scan" \
-              -F "engagement=$ENGAGEMENT_ID" && echo "✅ Gitleaks report uploaded" || echo "⚠️  Failed to upload Gitleaks report"
-          else
-            echo "⚠️  Gitleaks Report not found, skipping upload."
+          echo "=========================================="
+          echo "🛡️  DEFECTDOJO UPLOAD VERIFICATION"
+          echo "=========================================="
+          
+          # Verify secrets are configured
+          if [ -z "$DD_URL" ]; then
+            echo "❌ ERROR: DEFECTDOJO_URL secret not configured"
+            exit 1
           fi
-
-          echo "Uploading Trivy Scan Report..."
-          if [ -f trivy-report.json ]; then
-            curl -X POST "$DD_URL/api/v2/import-scan/" \
-              -H "Authorization: Token $DD_API_KEY" \
-              -F "file=@trivy-report.json" \
-              -F "scan_type=Trivy Scan" \
-              -F "engagement=$ENGAGEMENT_ID" && echo "✅ Trivy report uploaded" || echo "⚠️  Failed to upload Trivy report"
-          else
-            echo "⚠️  Trivy report not found, skipping upload."
+          
+          if [ -z "$DD_API_KEY" ]; then
+            echo "❌ ERROR: DEFECTDOJO_API_KEY secret not configured"
+            exit 1
           fi
-
-          echo "Uploading OWASP Dependency Check Report..."
-          if [ -f app/target/dependency-check-report.xml ]; then
-            curl -X POST "$DD_URL/api/v2/import-scan/" \
-              -H "Authorization: Token $DD_API_KEY" \
-              -F "file=@app/target/dependency-check-report.xml" \
-              -F "scan_type=Dependency Check Scan" \
-              -F "engagement=$ENGAGEMENT_ID" && echo "✅ Dependency Check report uploaded" || echo "⚠️  Failed to upload Dependency Check report"
-          else
-            echo "⚠️  Dependency Check report not found, skipping upload."
+          
+          if [ -z "$ENGAGEMENT_ID" ]; then
+            echo "❌ ERROR: DEFECTDOJO_ENGAGEMENT_ID secret not configured"
+            exit 1
           fi
-
-          echo "Uploading OWASP ZAP Report..."
-          if [ -f zap-report.json ]; then
-            curl -X POST "$DD_URL/api/v2/import-scan/" \
-              -H "Authorization: Token $DD_API_KEY" \
-              -F "file=@zap-report.json" \
-              -F "scan_type=ZAP Scan" \
-              -F "engagement=$ENGAGEMENT_ID" && echo "✅ ZAP report uploaded" || echo "⚠️  Failed to upload ZAP report"
+          
+          echo "✅ All secrets configured"
+          echo "📍 DefectDojo URL: $DD_URL"
+          echo "📍 Engagement ID: $ENGAGEMENT_ID"
+          echo ""
+          
+          # Test connectivity
+          echo "Testing DefectDojo connectivity..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DD_URL/api/v2/findings/?engagement=$ENGAGEMENT_ID" \
+            -H "Authorization: Token $DD_API_KEY")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ DefectDojo is reachable"
           else
-            echo "⚠️  OWASP ZAP Report not found, skipping upload."
+            echo "⚠️  DefectDojo returned HTTP $HTTP_CODE (may still proceed)"
           fi
+          echo ""
+          
+          # Upload function with detailed logging
+          upload_report() {
+            local file=$1
+            local scan_type=$2
+            local display_name=$3
+            
+            echo "📤 Uploading $display_name..."
+            
+            if [ ! -f "$file" ]; then
+              echo "   ⚠️  File not found: $file"
+              return 1
+            fi
+            
+            echo "   📄 File: $file ($(wc -c < "$file") bytes)"
+            
+            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DD_URL/api/v2/import-scan/" \
+              -H "Authorization: Token $DD_API_KEY" \
+              -F "file=@$file" \
+              -F "scan_type=$scan_type" \
+              -F "engagement=$ENGAGEMENT_ID")
+            
+            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            
+            if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
+              echo "   ✅ $display_name uploaded successfully (HTTP $HTTP_STATUS)"
+              echo "   📋 Response: $(echo "$BODY" | jq -r '.id // .detail // .' 2>/dev/null || echo "$BODY" | head -c 100)"
+              return 0
+            else
+              echo "   ❌ Failed to upload $display_name (HTTP $HTTP_STATUS)"
+              echo "   📋 Error: $(echo "$BODY" | jq -r '.detail // .' 2>/dev/null || echo "$BODY" | head -c 200)"
+              return 1
+            fi
+          }
+          
+          # Upload all reports
+          UPLOAD_COUNT=0
+          
+          upload_report "gitleaks-report.json" "Gitleaks Scan" "Gitleaks Report" && ((UPLOAD_COUNT++))
+          upload_report "trivy-report.json" "Trivy Scan" "Trivy Report" && ((UPLOAD_COUNT++))
+          upload_report "app/target/dependency-check-report.xml" "Dependency Check Scan" "Dependency Check Report" && ((UPLOAD_COUNT++))
+          upload_report "zap-report.json" "ZAP Scan" "ZAP Report" && ((UPLOAD_COUNT++))
+          
+          echo ""
+          echo "=========================================="
+          echo "✅ Upload Summary: $UPLOAD_COUNT reports uploaded"
+          echo "=========================================="
 
       # 📊 PROMETHEUS METRICS (Stage 8b - Grafana)
       - name: Push Metrics to Prometheus Pushgateway
