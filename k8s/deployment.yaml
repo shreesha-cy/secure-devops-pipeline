@@ -2,15 +2,18 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: test
+  namespace: secure-devops
 spec:
   containers:
     - name: app
-      image: docker.io/library/nginx
+      image: docker.io/library/nginx:1.25.2@sha256:87198d89e5271a3378b2778da5a339903b4142f10d297a7a1ecb183fb0b1a03a
       securityContext:
-        runAsUser: 1000
+        runAsUser: 10001
         runAsNonRoot: true
         allowPrivilegeEscalation: false
         readOnlyRootFilesystem: true
+        seccompProfile:
+          type: RuntimeDefault
         capabilities:
           drop:
             - ALL
@@ -20,6 +23,12 @@ spec:
           port: 80
         initialDelaySeconds: 10
         periodSeconds: 5
+      livenessProbe:
+        httpGet:
+          path: /
+          port: 80
+        initialDelaySeconds: 15
+        periodSeconds: 10
       resources:
         limits:
           cpu: "500m"
