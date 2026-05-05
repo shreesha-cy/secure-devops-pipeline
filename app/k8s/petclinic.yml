@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: petclinic
+  namespace: secure-devops
 spec:
   type: NodePort
   ports:
@@ -16,6 +17,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: petclinic
+  namespace: secure-devops
   labels:
     app: petclinic
 spec:
@@ -28,13 +30,17 @@ spec:
       labels:
         app: petclinic
     spec:
+      automountServiceAccountToken: false
       securityContext:
         runAsUser: 1000
         runAsNonRoot: true
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: workload
           image: ${{ secrets.DOCKER_USERNAME }}/devops-app
+          imagePullPolicy: Always
           securityContext:
             runAsUser: 1000
             runAsNonRoot: true
@@ -78,4 +84,10 @@ spec:
               port: http
             initialDelaySeconds: 10
             periodSeconds: 5
-         
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
