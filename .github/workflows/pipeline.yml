@@ -15,6 +15,11 @@ jobs:
         ports:
           - 9000:9000
 
+      prometheus-pushgateway:
+        image: prom/pushgateway:latest
+        ports:
+          - 9091:9091
+
     steps:
       # 📥 CHECKOUT
       - name: Checkout code
@@ -47,7 +52,16 @@ jobs:
       - name: Build JAR
         run: |
           cd app
-          mvn clean install -DskipTests -Dcheckstyle.skip=true -Dspring-javaformat.skip=true
+          mvn clean install -Dcheckstyle.skip=true -Dspring-javaformat.skip=true
+
+      # 🧪 UPLOAD TEST REPORTS
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: app/target/surefire-reports/
+          if-no-files-found: ignore
 
       # 🐳 DOCKER LOGIN
       - name: Docker Login
@@ -158,12 +172,32 @@ jobs:
             --output json \
             --output-file-path console,checkov-report.json
 
-      # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
-      - name: Upload to DefectDojo (placeholder)
-        if: false
+      # 🛡️ DEFECTDOJO INTEGRATION
+      - name: Upload to DefectDojo
+        if: secrets.DEFECTDOJO_URL != '' && secrets.DEFECTDOJO_API_KEY != ''
         run: |
-          curl -X POST "http://<DEFECTDOJO_URL>/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
-            -F "file=@app/target/dependency-check-report.xml" \
-            -F "scan_type=Dependency Check Scan" \
-            -F "engagement=1"
+          chmod +x scripts/defectdojo-upload.sh
+          scripts/defectdojo-upload.sh \
+            --url "${{ secrets.DEFECTDOJO_URL }}" \
+            --api-key "${{ secrets.DEFECTDOJO_API_KEY }}" \
+            --product "Secure DevOps Pipeline" \
+            --engagement "CI Run #${{ github.run_number }}"
+
+      # 📊 PROMETHEUS METRICS
+      - name: Push Security Metrics to Prometheus
+        run: |
+          chmod +x scripts/prometheus-metrics.sh
+          scripts/prometheus-metrics.sh \
+            --pushgateway "http://localhost:9091"
+
+      # 📦 UPLOAD SECURITY REPORTS
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports
+          path: |
+            trivy-report.json
+            checkov-report.json
+            app/target/dependency-check-report.xml
+          if-no-files-found: ignore
