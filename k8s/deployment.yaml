@@ -4,39 +4,21 @@ metadata:
   name: test
   namespace: secure-devops
 spec:
+  automountServiceAccountToken: false
   securityContext:
-    seccompProfile:
-      type: RuntimeDefault
+    runAsNonRoot: true
+    runAsUser: 10000
   containers:
     - name: app
-      image: docker.io/library/nginx:1.25.2@sha256:87198d89e5271a3378b2778da5a339903b4142f10d297a7a1ecb183fb0b1a03a
+      image: docker.io/library/nginx:stable@sha256:1a9ab83e2892b75773978e8d91f42a7a2a0d8bb704959a51ff17c0377481973d
       securityContext:
-        runAsUser: 10001
+        runAsUser: 10000
         runAsNonRoot: true
         allowPrivilegeEscalation: false
-        readOnlyRootFilesystem: true
-        seccompProfile:
-          type: RuntimeDefault
         capabilities:
           drop:
             - ALL
-      readinessProbe:
-        httpGet:
-          path: /
-          port: 80
-        initialDelaySeconds: 10
-        periodSeconds: 5
-      livenessProbe:
-        httpGet:
-          path: /
-          port: 80
-        initialDelaySeconds: 15
-        periodSeconds: 10
       resources:
-        requests:
-          cpu: "100m"
-          memory: "128Mi"
         limits:
           cpu: "500m"
           memory: "256Mi"
-      imagePullPolicy: Always

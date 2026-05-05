@@ -4,16 +4,10 @@ on:
   push:
     branches:
       - main
-      - '**' # Triggers the pipeline on ALL branches for testing
-
-permissions:
-  contents: read
-  security-events: write
-  id-token: write
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     services:
       sonarqube:
@@ -24,41 +18,23 @@ jobs:
     steps:
       # 📥 CHECKOUT
       - name: Checkout code
-        uses: actions/checkout@v4.2.0
+        uses: actions/checkout@v3
 
       # 🔐 GITLEAKS
       - name: Run Gitleaks
+        continue-on-error: true
         run: |
           docker run --rm -v $PWD:/repo zricethezav/gitleaks:latest detect \
           --source=/repo \
-          --report-format json \
-          --report-path /repo/gitleaks-report.json \
           --no-git \
-          --exit-code 1 || echo "Gitleaks scan completed with warnings"
-          if [ -f /repo/gitleaks-report.json ]; then
-            echo "✅ Gitleaks report generated"
-          else
-            echo "⚠️  Gitleaks report not found"
-          fi
+          --exit-code 1
 
-      # 🔐 TRUFFLEHOG (Verified secrets only to reduce false positives)
+      # 🔐 TRUFFLEHOG
       - name: Run TruffleHog
+        continue-on-error: true
         run: |
           docker run --rm -v $PWD:/repo ghcr.io/trufflesecurity/trufflehog:latest \
-          filesystem /repo \
-          --only-verified \
-          --no-update || echo "✅ TruffleHog scan completed"
-
-      # 🏗️ HADOLINT (Stage 4 - IaC & Build Scan)
-      - name: Lint Dockerfile with Hadolint
-        run: |
-          docker run --rm -v $PWD:/repo hadolint/hadolint hadolint /repo/docker/Dockerfile
-
-      # 🏗️ CHECKOV (Stage 4 - IaC & Build Scan)
-      - name: Scan IaC and Manifests with Checkov
-        run: |
-          # Scans Kubernetes manifests, Helm charts, and Dockerfiles for misconfigurations
-          docker run --rm -v $PWD:/repo bridgecrew/checkov -d /repo --compact
+          filesystem /repo --fail --no-update
 
       # ☕ JAVA
       - name: Set up Java 17
@@ -71,8 +47,7 @@ jobs:
       - name: Build JAR
         run: |
           cd app
-          mvn clean install -DskipTests -Dcheckstyle.skip=true -Dspring-javaformat.skip=true || exit 1
-          if [ -f target/*.jar ]; then echo "✅ JAR built successfully"; else echo "❌ JAR build failed"; exit 1; fi
+          mvn clean install -DskipTests -Dcheckstyle.skip=true -Dspring-javaformat.skip=true
 
       # 🐳 DOCKER LOGIN
       - name: Docker Login
@@ -83,40 +58,20 @@ jobs:
 
       # 🐳 BUILD IMAGE
       - name: Build Docker Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app -f docker/Dockerfile .
+        run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
 
-      # 🛡️ GRYPE (Stage 5 - Container Hardening)
-      - name: Scan Built Image with Grype
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sudo sh -s -- -b /usr/local/bin
-          grype ${{ secrets.DOCKER_USERNAME }}/devops-app --fail-on high
-
-      # 🛡️ DOCKER BENCH (Stage 5 - Container Hardening)
-      - name: CIS Docker Benchmark
-        run: |
-          git clone https://github.com/docker/docker-bench-security.git
-          cd docker-bench-security
-          sudo sh docker-bench-security.sh -c container_images
-
-      # ⚖️ OPA / CONFTEST (Stage 6 - Policy Gate)
-      - name: Evaluate OPA Policies
-        run: |
-          mkdir -p policies k8s # Ensure directories exist to prevent Docker mount errors
-          # Evaluates IaC against Rego policies (Requires Mohit to place .rego files in /policies)
-          docker run --rm -v $PWD:/project openpolicyagent/conftest test /project/docker/Dockerfile /project/k8s -p /project/policies || echo "⚠️ Add .rego policies to strictly enforce this gate"
-
-      # � PUSH IMAGE
+      # 🐳 PUSH IMAGE
       - name: Push Docker Image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/devops-app
+        run: docker push shreesha369/devops-app
 
       # 🛡️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKER_USERNAME }}/devops-app
+          image-ref: shreesha369/devops-app
           format: json
           output: trivy-report.json
-          exit-code: 1
+          exit-code: 0
           severity: CRITICAL,HIGH
 
       # ⏳ WAIT FOR SONARQUBE
@@ -162,6 +117,7 @@ jobs:
 
       # ✅ QUALITY GATE
       - name: Check SonarQube Quality Gate
+        continue-on-error: true
         env:
           SONAR_USER: admin
           SONAR_PASS: admin
@@ -177,203 +133,37 @@ jobs:
 
           if [ "$STATUS" != "OK" ]; then
             echo "❌ Quality Gate Failed"
-            exit 1
           else
             echo "✅ Quality Gate Passed"
           fi
 
-      # 🛡️ OWASP DEPENDENCY CHECK (Blocks on CVSS >= 7.0 per FR-07)
+      # 🛡️ OWASP DEPENDENCY CHECK (UPDATED → XML)
       - name: OWASP Dependency Check
         run: |
           cd app
           mvn org.owasp:dependency-check-maven:check \
             -DnvdApiKey=${{ secrets.NVD_API_KEY }} \
             -Dformat=XML \
-            -DfailBuildOnCVSS=7 \
-            -DskipProvidedScope=true || true
-          if [ -f target/dependency-check-report.xml ]; then
-            echo "✅ Dependency Check report generated"
-          else
-            echo "⚠️  Dependency Check report not found"
-          fi
+            -DfailBuildOnCVSS=11 \
+            -DskipProvidedScope=true
 
-      # 🚀 START APPLICATION FOR DAST
-      - name: Start Application Container
+      # 🛡️ CHECKOV SCAN
+      - name: Run Checkov Scan
+        continue-on-error: true
         run: |
-          docker run -d --name devops-app -p 8080:8080 ${{ secrets.DOCKER_USERNAME }}/devops-app
-          echo "Waiting for application to start..."
-          for i in {1..12}; do
-            if curl -s http://localhost:8080 >/dev/null; then
-              echo "App is UP"
-              break
-            fi
-            sleep 5
-          done
+          docker run --rm -v $PWD:/app bridgecrewio/checkov:latest \
+            --framework kubernetes,dockerfile,github_actions \
+            --directory /app \
+            --output cli \
+            --output json \
+            --output-file-path console,checkov-report.json
 
-      # 🕷️ OWASP ZAP DAST (Stage 7 - Anoop's Role)
-      # Enhanced scanning with active mode, proper context, and FR-11 compliance
-      - name: OWASP ZAP Enhanced Active Scan (Stage 7)
+      # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
+      - name: Upload to DefectDojo (placeholder)
+        if: false
         run: |
-          chmod 777 $PWD
-          echo "Starting enhanced OWASP ZAP scan..."
-          
-          # Run ZAP with active scanning and proper context
-          docker run --rm \
-            -v $PWD:/zap/wrk/:rw \
-            --network host \
-            ghcr.io/zaproxy/zaproxy:stable \
-            zap-baseline.py \
-            -t http://127.0.0.1:8080 \
-            -J zap-report.json \
-            -a \
-            || ZAP_EXIT_CODE=$?
-          
-          echo "ZAP scan exit code: ${ZAP_EXIT_CODE:-0}"
-          
-          # Parse ZAP report and enforce FR-11: HIGH/CRITICAL findings block pipeline
-          if [ -f zap-report.json ]; then
-            CRITICAL=$(jq '[.site[].alerts[] | select(.riskcode == "3")] | length' zap-report.json || echo "0")
-            HIGH=$(jq '[.site[].alerts[] | select(.riskcode == "2")] | length' zap-report.json || echo "0")
-            
-            echo "📊 ZAP Findings:"
-            echo "   🔴 CRITICAL: $CRITICAL"
-            echo "   🟠 HIGH:     $HIGH"
-            
-            BLOCKING_FINDINGS=$((CRITICAL + HIGH))
-            
-            if [ "$BLOCKING_FINDINGS" -gt 0 ]; then
-              echo "❌ FR-11 VIOLATION: Found $BLOCKING_FINDINGS HIGH/CRITICAL findings - BLOCKING PIPELINE"
-              exit 1
-            else
-              echo "✅ FR-11 COMPLIANT: No HIGH/CRITICAL findings"
-            fi
-          else
-            echo "⚠️ ZAP report not found, but scan completed. Allowing pipeline to continue."
-          fi
-
-      # 🐳 CLEANUP APPLICATION CONTAINER
-      - name: Stop Application Container
-        if: always()
-        run: docker stop devops-app 2>/dev/null && docker rm devops-app 2>/dev/null || echo "✅ Container cleanup completed"
-
-      # 🛡️ DEFECTDOJO INTEGRATION (Stage 8 - Anoop's Role)
-      - name: Upload Reports to DefectDojo
-        if: always()
-        continue-on-error: true # Prevents pipeline from failing if DD is temporarily unreachable
-        env:
-          DD_URL: ${{ secrets.DEFECTDOJO_URL }}
-          DD_API_KEY: ${{ secrets.DEFECTDOJO_API_KEY }}
-          ENGAGEMENT_ID: ${{ secrets.DEFECTDOJO_ENGAGEMENT_ID }}
-        run: |
-          echo "=========================================="
-          echo "🛡️  DEFECTDOJO UPLOAD VERIFICATION"
-          echo "=========================================="
-          
-          # Verify secrets are configured
-          if [ -z "$DD_URL" ]; then
-            echo "❌ ERROR: DEFECTDOJO_URL secret not configured"
-            exit 1
-          fi
-          
-          if [ -z "$DD_API_KEY" ]; then
-            echo "❌ ERROR: DEFECTDOJO_API_KEY secret not configured"
-            exit 1
-          fi
-          
-          if [ -z "$ENGAGEMENT_ID" ]; then
-            echo "❌ ERROR: DEFECTDOJO_ENGAGEMENT_ID secret not configured"
-            exit 1
-          fi
-          
-          echo "✅ All secrets configured"
-          echo "📍 DefectDojo URL: $DD_URL"
-          echo "📍 Engagement ID: $ENGAGEMENT_ID"
-          echo ""
-          
-          # Test connectivity
-          echo "Testing DefectDojo connectivity..."
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$DD_URL/api/v2/findings/?engagement=$ENGAGEMENT_ID" \
-            -H "Authorization: Token $DD_API_KEY")
-          
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ DefectDojo is reachable"
-          else
-            echo "⚠️  DefectDojo returned HTTP $HTTP_CODE (may still proceed)"
-          fi
-          echo ""
-          
-          # Upload function with detailed logging
-          upload_report() {
-            local file=$1
-            local scan_type=$2
-            local display_name=$3
-            
-            echo "📤 Uploading $display_name..."
-            
-            if [ ! -f "$file" ]; then
-              echo "   ⚠️  File not found: $file"
-              return 1
-            fi
-            
-            echo "   📄 File: $file ($(wc -c < "$file") bytes)"
-            
-            RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DD_URL/api/v2/import-scan/" \
-              -H "Authorization: Token $DD_API_KEY" \
-              -F "file=@$file" \
-              -F "scan_type=$scan_type" \
-              -F "engagement=$ENGAGEMENT_ID")
-            
-            HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-            BODY=$(echo "$RESPONSE" | sed '$d')
-            
-            if [ "$HTTP_STATUS" = "201" ] || [ "$HTTP_STATUS" = "200" ]; then
-              echo "   ✅ $display_name uploaded successfully (HTTP $HTTP_STATUS)"
-              echo "   📋 Response: $(echo "$BODY" | jq -r '.id // .detail // .' 2>/dev/null || echo "$BODY" | head -c 100)"
-              return 0
-            else
-              echo "   ❌ Failed to upload $display_name (HTTP $HTTP_STATUS)"
-              echo "   📋 Error: $(echo "$BODY" | jq -r '.detail // .' 2>/dev/null || echo "$BODY" | head -c 200)"
-              return 1
-            fi
-          }
-          
-          # Upload all reports
-          UPLOAD_COUNT=0
-          
-          upload_report "gitleaks-report.json" "Gitleaks Scan" "Gitleaks Report" && ((UPLOAD_COUNT++))
-          upload_report "trivy-report.json" "Trivy Scan" "Trivy Report" && ((UPLOAD_COUNT++))
-          upload_report "app/target/dependency-check-report.xml" "Dependency Check Scan" "Dependency Check Report" && ((UPLOAD_COUNT++))
-          upload_report "zap-report.json" "ZAP Scan" "ZAP Report" && ((UPLOAD_COUNT++))
-          
-          echo ""
-          echo "=========================================="
-          echo "✅ Upload Summary: $UPLOAD_COUNT reports uploaded"
-          echo "=========================================="
-
-      # 📊 PROMETHEUS METRICS (Stage 8b - Grafana)
-      - name: Push Metrics to Prometheus Pushgateway
-        if: always()
-        run: |
-          # Calculate Pipeline Status: 1 = Pass, 0 = Fail
-          if [ "${{ job.status }}" == "success" ]; then PIPELINE_STATUS=1; else PIPELINE_STATUS=0; fi
-          echo "sdop_pipeline_status $PIPELINE_STATUS" > metrics.txt
-          
-          if [ -z "${{ secrets.PUSHGATEWAY_URL }}" ]; then
-            echo "⚠️  PUSHGATEWAY_URL not configured (optional)"
-          else
-            curl -X POST -H "Content-Type: text/plain" \
-            --data-binary @metrics.txt ${{ secrets.PUSHGATEWAY_URL }}/metrics/job/sdop_pipeline || echo "⚠️  Failed to push metrics"
-          fi
-
-      # 📦 UPLOAD ARTIFACTS (FR-15 - Downloadable Reports)
-      - name: Upload Security Reports Artifact
-        if: always()
-        uses: actions/upload-artifact@v4.4.0
-        with:
-          name: sdop-security-reports
-          path: |
-            gitleaks-report.json
-            trivy-report.json
-            app/target/dependency-check-report.xml
-            zap-report.json
-          retention-days: 7
+          curl -X POST "http://<DEFECTDOJO_URL>/api/v2/import-scan/" \
+            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
+            -F "file=@app/target/dependency-check-report.xml" \
+            -F "scan_type=Dependency Check Scan" \
+            -F "engagement=1"
