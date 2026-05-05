@@ -4,16 +4,22 @@ on:
   push:
     branches:
       - main
+      - '**'  # Trigger on ALL branches for testing
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # Use self-hosted runner with Docker
 
     services:
       sonarqube:
-        image: sonarqube:latest
+        image: sonarqube:9.9-community
         ports:
           - 9000:9000
+        options: >
+          --health-cmd "curl -f http://localhost:9000/api/system/status || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
       prometheus-pushgateway:
         image: prom/pushgateway:latest
@@ -72,17 +78,17 @@ jobs:
 
       # 🐳 BUILD IMAGE
       - name: Build Docker Image
-        run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/devops-app -f docker/Dockerfile .
 
       # 🐳 PUSH IMAGE
       - name: Push Docker Image
-        run: docker push shreesha369/devops-app
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/devops-app
 
       # 🛡️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: shreesha369/devops-app
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/devops-app
           format: json
           output: trivy-report.json
           exit-code: 0
