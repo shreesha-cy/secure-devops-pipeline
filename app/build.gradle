@@ -107,6 +107,5 @@ sonar {
     properties {
         property "sonar.projectKey", "cyber-shield"
         property "sonar.host.url", "http://localhost:9000"
-        property "sonar.login", "sqp_c6fc5499d814e698dfd0e3360090a847cfa458f7"
     }
 }

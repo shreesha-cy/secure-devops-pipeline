@@ -1,0 +1,104 @@
+---
+# Default deny all ingress traffic
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: petclinic-default-deny-ingress
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: petclinic
+  policyTypes:
+    - Ingress
+
+---
+# Allow petclinic to receive traffic from NodePort service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: petclinic-allow-from-service
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: petclinic
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8080
+
+---
+# Allow petclinic to connect to database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: petclinic-allow-egress-db
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: petclinic
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: demo-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+
+---
+# Default deny all egress traffic for database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-db-default-deny-egress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-db
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# Default deny all ingress traffic for database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-db-default-deny-ingress
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: petclinic
+      ports:
+        - protocol: TCP
+          port: 5432
