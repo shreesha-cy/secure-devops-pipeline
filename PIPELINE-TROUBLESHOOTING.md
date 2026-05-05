@@ -54,17 +54,17 @@ ls -la ~/.github-runner  # or wherever you configured it
 **Problem:**
 ```yaml
 # Build
-run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
+run: docker build -t anoop1605/devops-app -f docker/Dockerfile .
 
 # Push
-run: docker push shreesha369/devops-app
+run: docker push anoop1605/devops-app
 
 # Scan
-image-ref: shreesha369/devops-app
+image-ref: anoop1605/devops-app
 ```
 
 **Why it matters:**
-- Only works for `shreesha369` account
+- Only works for `anoop1605` account
 - Fails with authentication error when pushing
 - Not portable across different accounts
 

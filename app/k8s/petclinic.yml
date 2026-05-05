@@ -43,7 +43,7 @@ spec:
         fsGroup: 10000
       containers:
         - name: workload
-          image: shreesha369/devops-app@sha256:f8990ca480a97c2a149e45b7567ed5bccb9c983bd647dba856f6f07409b3c31e
+          image: anoop1605/devops-app@sha256:f8990ca480a97c2a149e45b7567ed5bccb9c983bd647dba856f6f07409b3c31e
           securityContext:
             runAsUser: 10000
             runAsNonRoot: true

@@ -69,7 +69,7 @@ Enhanced pipeline stage with:
 
 ```
 1. START APPLICATION
-   └─> docker run -d -p 8080:8080 shreesha369/devops-app
+   └─> docker run -d -p 8080:8080 anoop1605/devops-app
    └─> Wait until http://localhost:8080 responds (UP)
 
 2. RUN ZAP SCAN

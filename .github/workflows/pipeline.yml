@@ -55,17 +55,17 @@ jobs:
 
       # 🐳 BUILD IMAGE
       - name: Build Docker Image
-        run: docker build -t shreesha369/devops-app -f docker/Dockerfile .
+        run: docker build -t anoop1605/devops-app -f docker/Dockerfile .
 
       # 🐳 PUSH IMAGE
       - name: Push Docker Image
-        run: docker push shreesha369/devops-app
+        run: docker push anoop1605/devops-app
 
       # 🛡️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: shreesha369/devops-app
+          image-ref: anoop1605/devops-app
           format: json
           output: trivy-report.json
           exit-code: 0
