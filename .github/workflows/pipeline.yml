@@ -19,7 +19,7 @@ jobs:
     steps:
       # 📥 CHECKOUT
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.0
 
       # 🔐 GITLEAKS
       - name: Run Gitleaks
@@ -297,7 +297,7 @@ jobs:
       # 📦 UPLOAD ARTIFACTS (FR-15 - Downloadable Reports)
       - name: Upload Security Reports Artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.0
         with:
           name: sdop-security-reports
           path: |

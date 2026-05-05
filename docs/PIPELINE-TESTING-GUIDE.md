@@ -42,7 +42,7 @@ Ensure these secrets are set in your GitHub repo (Settings → Secrets and varia
 
 ```
 ✅ DEFECTDOJO_URL = http://your-ip:8000
-✅ DEFECTDOJO_API_KEY = 0be0b32791237a3b897ad375582d593d6e0eaaf7
+✅ DEFECTDOJO_API_KEY = <your-api-key-here>
 ✅ DEFECTDOJO_ENGAGEMENT_ID = 1
 ✅ SLACK_WEBHOOK_URL = https://hooks.slack.com/services/...
 ✅ PUSHGATEWAY_URL = http://your-ip:9091
