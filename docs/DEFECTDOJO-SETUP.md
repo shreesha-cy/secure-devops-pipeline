@@ -273,5 +273,5 @@ python manage.py drf_create_token admin
 1. ✅ DefectDojo is running
 2. ⏭️ Create Grafana dashboards (see `GRAFANA-DASHBOARDS.md`)
 3. ⏭️ Test full pipeline integration (run GitHub Actions)
-4. ⏭️ Enhance ZAP + Slack notifications
+4. ⏭️ Enhance ZAP + Slack notifications.
 
