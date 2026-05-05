@@ -32,17 +32,17 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
-        runAsUser: 1000
+        runAsUser: 1001
         runAsNonRoot: true
-        fsGroup: 1000
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
         - name: workload
           image: ${{ secrets.DOCKER_USERNAME }}/devops-app:v1.0.0
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
-            runAsUser: 1000
+            runAsUser: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

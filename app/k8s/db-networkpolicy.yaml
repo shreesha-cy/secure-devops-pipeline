@@ -1,0 +1,56 @@
+---
+# Default deny all ingress traffic for database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-default-deny-ingress
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-db
+  policyTypes:
+    - Ingress
+
+---
+# Allow petclinic to connect to database
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-from-petclinic
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: petclinic
+      ports:
+        - protocol: TCP
+          port: 5432
+
+---
+# Default deny all egress for database (only allow DNS and DB operations)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-default-deny-egress
+  namespace: secure-devops
+spec:
+  podSelector:
+    matchLabels:
+      app: demo-db
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53

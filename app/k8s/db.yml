@@ -45,39 +45,34 @@ spec:
     spec:
       automountServiceAccountToken: false
       securityContext:
-        runAsUser: 999
+        runAsUser: 1001
         runAsNonRoot: true
-        fsGroup: 999
+        fsGroup: 1001
         seccompProfile:
           type: RuntimeDefault
       containers:
         - image: postgres:18.3-alpine3.21
           name: postgresql
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           securityContext:
-            runAsUser: 999
+            runAsUser: 1001
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: postgres-secrets
+              mountPath: /etc/postgresql/secrets
+              readOnly: true
           env:
-            - name: POSTGRES_USER
-              valueFrom:
-                secretKeyRef:
-                  name: demo-db
-                  key: username
-            - name: POSTGRES_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: demo-db
-                  key: password
-            - name: POSTGRES_DB
-              valueFrom:
-                secretKeyRef:
-                  name: demo-db
-                  key: database
+            - name: POSTGRES_USER_FILE
+              value: /etc/postgresql/secrets/username
+            - name: POSTGRES_PASSWORD_FILE
+              value: /etc/postgresql/secrets/password
+            - name: POSTGRES_DB_FILE
+              value: /etc/postgresql/secrets/database
           ports:
             - containerPort: 5432
               name: postgresql

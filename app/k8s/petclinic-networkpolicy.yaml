@@ -4,7 +4,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: petclinic-default-deny-ingress
-  namespace: default
+  namespace: secure-devops
 spec:
   podSelector:
     matchLabels:
@@ -18,7 +18,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: petclinic-allow-from-service
-  namespace: default
+  namespace: secure-devops
 spec:
   podSelector:
     matchLabels:
@@ -38,7 +38,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: petclinic-allow-egress-db
-  namespace: default
+  namespace: secure-devops
 spec:
   podSelector:
     matchLabels:
