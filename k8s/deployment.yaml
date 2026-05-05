@@ -4,6 +4,9 @@ metadata:
   name: test
   namespace: secure-devops
 spec:
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault
   containers:
     - name: app
       image: docker.io/library/nginx:1.25.2@sha256:87198d89e5271a3378b2778da5a339903b4142f10d297a7a1ecb183fb0b1a03a

@@ -41,15 +41,13 @@ jobs:
             echo "⚠️  Gitleaks report not found"
           fi
 
-      # 🔐 TRUFFLEHOG (Exclude .git and .github to prevent false positives)
+      # 🔐 TRUFFLEHOG (Verified secrets only to reduce false positives)
       - name: Run TruffleHog
         run: |
           docker run --rm -v $PWD:/repo ghcr.io/trufflesecurity/trufflehog:latest \
           filesystem /repo \
           --only-verified \
-          --no-update \
-          --skip-dirs .git,.github || echo "TruffleHog scan completed"
-          echo "✅ TruffleHog scan completed"
+          --no-update || echo "✅ TruffleHog scan completed"
 
       # 🏗️ HADOLINT (Stage 4 - IaC & Build Scan)
       - name: Lint Dockerfile with Hadolint
@@ -256,7 +254,7 @@ jobs:
       # 🐳 CLEANUP APPLICATION CONTAINER
       - name: Stop Application Container
         if: always()
-        run: docker stop devops-app && docker rm devops-app || true
+        run: docker stop devops-app 2>/dev/null && docker rm devops-app 2>/dev/null || echo "✅ Container cleanup completed"
 
       # 🛡️ DEFECTDOJO INTEGRATION (Stage 8 - Anoop's Role)
       - name: Upload Reports to DefectDojo

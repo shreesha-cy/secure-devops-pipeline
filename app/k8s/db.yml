@@ -51,14 +51,14 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - image: postgres:18.3
+        - image: postgres:18.3-alpine3.21
           name: postgresql
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             runAsUser: 999
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
@@ -103,3 +103,15 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
+      volumes:
+        - name: postgres-secrets
+          secret:
+            secretName: demo-db
+            items:
+              - key: username
+                path: username
+              - key: password
+                path: password
+              - key: database
+                path: database
+            defaultMode: 0400
