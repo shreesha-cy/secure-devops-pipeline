@@ -89,10 +89,10 @@ jobs:
       - name: SonarQube Scan
         run: |
           cd app
-          mvn sonar:sonar \
+          mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
             -Dsonar.projectKey=secure-devops \
             -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
       # ✅ QUALITY GATE
       - name: Check SonarQube Quality Gate
         continue-on-error: true
