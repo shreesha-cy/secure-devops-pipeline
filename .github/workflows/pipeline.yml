@@ -12,14 +12,6 @@ jobs:
     # For DefectDojo on localhost:8000, must use self-hosted runner
     runs-on: self-hosted
 
-    services:
-      # ⚠️ NOTE: Services only work with ubuntu-latest runners
-      # For self-hosted runners, start SonarQube separately on your host
-      sonarqube:
-        image: sonarqube:latest
-        ports:
-          - 9000:9000
-
     steps:
       # 📥 CHECKOUT
       - name: Checkout code
