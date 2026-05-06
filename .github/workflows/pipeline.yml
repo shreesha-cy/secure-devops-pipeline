@@ -93,34 +93,21 @@ jobs:
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
 
-      # 🔐 GENERATE SONAR TOKEN
-      - name: Generate Sonar Token
-        env:
-          SONAR_USER: admin
-          SONAR_PASS: admin
-        run: |
-          TOKEN=$(curl -s -u $SONAR_USER:$SONAR_PASS \
-          -X POST "http://localhost:9000/api/user_tokens/generate?name=ci-token" \
-          | jq -r '.token')
-          echo "SONAR_TOKEN=$TOKEN" >> $GITHUB_ENV
-      # 🔍 SONAR SCAN
+      #  SONAR SCAN
       - name: SonarQube Scan
         run: |
           cd app
           mvn sonar:sonar \
             -Dsonar.projectKey=secure-devops \
             -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.token=$SONAR_TOKEN
+            -Dsonar.token=${{ secrets.SONAR_TOKEN }}
       # ✅ QUALITY GATE
       - name: Check SonarQube Quality Gate
         continue-on-error: true
-        env:
-          SONAR_USER: admin
-          SONAR_PASS: admin
         run: |
           echo "Checking Quality Gate..."
           sleep 20
-          STATUS=$(curl -s -u $SONAR_USER:$SONAR_PASS \
+          STATUS=$(curl -s -u ${{ secrets.SONAR_TOKEN }}: \
           "http://localhost:9000/api/qualitygates/project_status?projectKey=secure-devops" \
           | jq -r '.projectStatus.status')
           echo "Quality Gate Status: $STATUS"

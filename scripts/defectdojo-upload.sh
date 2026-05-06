@@ -1,7 +1,5 @@
 #!/bin/bash
 # DefectDojo Upload Script for Secure DevOps Pipeline
-# Uploads security scan reports to DefectDojo via the REST API.
-# Usage: defectdojo-upload.sh --url URL --api-key KEY --product NAME --engagement NAME
 
 set -e
 
@@ -31,12 +29,8 @@ if [[ -z "$DEFECTDOJO_URL" || -z "$API_KEY" ]]; then
   usage
 fi
 
-# ✅ Validate URL format (must include protocol)
-if ! [[ "$DEFECTDOJO_URL" =~ ^http(s)?:// ]]; then
-  echo "❌ Error: DEFECTDOJO_URL must include protocol (e.g., http://localhost:8000)"
-  echo "   Current value: $DEFECTDOJO_URL"
-  exit 1
-fi
+# Strip trailing slash from URL if present to prevent double slashes
+DEFECTDOJO_URL=${DEFECTDOJO_URL%/}
 
 AUTH_HEADER="Authorization: Token $API_KEY"
 CONTENT_TYPE="Content-Type: application/json"
@@ -50,13 +44,29 @@ echo "Product: $PRODUCT_NAME"
 echo "Engagement: $ENGAGEMENT_NAME"
 echo ""
 
+# Temporarily disable exit-on-error so we can catch curl connection failures cleanly
+set +e
+
 # Step 1: Get or create product
 echo "📦 Looking up product: $PRODUCT_NAME"
-PRODUCT_RESPONSE=$(curl -s -w "\n%{http_code}" \
+# FIX: Use -G and --data-urlencode to safely handle spaces in the product name
+PRODUCT_RESPONSE=$(curl -s -w "\n%{http_code}" -G \
   -H "$AUTH_HEADER" \
-  "$API_BASE/products/?name=$PRODUCT_NAME")
+  --data-urlencode "name=$PRODUCT_NAME" \
+  "$API_BASE/products/")
+
+# Re-enable exit-on-error
+set -e
+
 HTTP_CODE=$(echo "$PRODUCT_RESPONSE" | tail -1)
 BODY=$(echo "$PRODUCT_RESPONSE" | head -n -1)
+
+# Check if curl failed entirely (e.g., 000 means connection refused)
+if [[ "$HTTP_CODE" == "000" || -z "$HTTP_CODE" ]]; then
+  echo "❌ CRITICAL ERROR: Could not connect to DefectDojo at $DEFECTDOJO_URL"
+  echo "   (If using 'localhost' inside a Docker runner, change it to the Host IP like 192.168.x.x)"
+  exit 1
+fi
 
 PRODUCT_COUNT=$(echo "$BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('count',0))" 2>/dev/null || echo "0")
 
@@ -70,11 +80,14 @@ else
     -H "$CONTENT_TYPE" \
     "$API_BASE/products/" \
     -d "{\"name\": \"$PRODUCT_NAME\", \"description\": \"Secure DevOps Pipeline security findings\", \"prod_type\": 1}")
+  
   HTTP_CODE=$(echo "$CREATE_PRODUCT" | tail -1)
   PRODUCT_BODY=$(echo "$CREATE_PRODUCT" | head -n -1)
   PRODUCT_ID=$(echo "$PRODUCT_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+  
   if [[ -z "$PRODUCT_ID" ]]; then
     echo "❌ Failed to create product (HTTP $HTTP_CODE)"
+    echo "Response: $PRODUCT_BODY"
     exit 1
   fi
   echo "✅ Created product ID: $PRODUCT_ID"
@@ -89,11 +102,14 @@ CREATE_ENG=$(curl -s -w "\n%{http_code}" -X POST \
   -H "$CONTENT_TYPE" \
   "$API_BASE/engagements/" \
   -d "{\"name\": \"$ENGAGEMENT_NAME\", \"product\": $PRODUCT_ID, \"target_start\": \"$TODAY\", \"target_end\": \"$TODAY\", \"engagement_type\": \"CI/CD\", \"status\": \"In Progress\"}")
+
 HTTP_CODE=$(echo "$CREATE_ENG" | tail -1)
 ENG_BODY=$(echo "$CREATE_ENG" | head -n -1)
 ENGAGEMENT_ID=$(echo "$ENG_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+
 if [[ -z "$ENGAGEMENT_ID" ]]; then
   echo "❌ Failed to create engagement (HTTP $HTTP_CODE)"
+  echo "Response: $ENG_BODY"
   exit 1
 fi
 echo "✅ Created engagement ID: $ENGAGEMENT_ID"
@@ -120,10 +136,11 @@ upload_scan() {
     -F "active=true" \
     -F "verified=false" \
     -F "minimum_severity=Info")
+    
   HTTP_CODE=$(echo "$UPLOAD_RESPONSE" | tail -1)
   UPLOAD_BODY=$(echo "$UPLOAD_RESPONSE" | head -n -1)
 
-  if [[ "$HTTP_CODE" == "201" ]]; then
+  if [[ "$HTTP_CODE" == "201" || "$HTTP_CODE" == "200" ]]; then
     echo "✅ $LABEL uploaded successfully"
   else
     echo "⚠️  $LABEL upload returned HTTP $HTTP_CODE"
@@ -143,5 +160,4 @@ echo "=================================================="
 echo "✅ DefectDojo upload complete!"
 echo "   Product ID:    $PRODUCT_ID"
 echo "   Engagement ID: $ENGAGEMENT_ID"
-echo "   View at: $DEFECTDOJO_URL/engagement/$ENGAGEMENT_ID"
 echo "=================================================="
