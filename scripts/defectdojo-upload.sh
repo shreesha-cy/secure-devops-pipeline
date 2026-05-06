@@ -31,6 +31,13 @@ if [[ -z "$DEFECTDOJO_URL" || -z "$API_KEY" ]]; then
   usage
 fi
 
+# ✅ Validate URL format (must include protocol)
+if ! [[ "$DEFECTDOJO_URL" =~ ^http(s)?:// ]]; then
+  echo "❌ Error: DEFECTDOJO_URL must include protocol (e.g., http://localhost:8000)"
+  echo "   Current value: $DEFECTDOJO_URL"
+  exit 1
+fi
+
 AUTH_HEADER="Authorization: Token $API_KEY"
 CONTENT_TYPE="Content-Type: application/json"
 API_BASE="$DEFECTDOJO_URL/api/v2"

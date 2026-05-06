@@ -7,9 +7,14 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 🔧 SELF-HOSTED RUNNER for localhost access
+    # If using GitHub-hosted runner, change this to: runs-on: ubuntu-latest
+    # For DefectDojo on localhost:8000, must use self-hosted runner
+    runs-on: self-hosted
 
     services:
+      # ⚠️ NOTE: Services only work with ubuntu-latest runners
+      # For self-hosted runners, start SonarQube separately on your host
       sonarqube:
         image: sonarqube:latest
         ports:
@@ -143,15 +148,18 @@ jobs:
             --output cli \
             --output json \
             --output-file-path console,checkov-report.json
-      # 🛡️ DEFECTDOJO INTEGRATION (Ananya part - placeholder)
-      - name: Upload to DefectDojo (placeholder)
-        if: false
+      - name: 🛡️ Upload Security Findings to DefectDojo
+        if: always()
+        # 📌 REQUIRES SECRETS: DEFECTDOJO_URL (with http:// prefix) and DEFECTDOJO_API_KEY
+        # Example: DEFECTDOJO_URL = http://localhost:8000 (for self-hosted runner)
+        # For GitHub-hosted runner, use host LAN IP: http://192.168.x.x:8000 or http://172.17.0.1:8000
         run: |
-          curl -X POST "http://<DEFECTDOJO_URL>/api/v2/import-scan/" \
-            -H "Authorization: Token ${{ secrets.DEFECTDOJO_API_KEY }}" \
-            -F "file=@app/target/dependency-check-report.xml" \
-            -F "scan_type=Dependency Check Scan" \
-            -F "engagement=1"
+          chmod +x ./scripts/defectdojo-upload.sh
+          ./scripts/defectdojo-upload.sh \
+            --url "${{ secrets.DEFECTDOJO_URL }}" \
+            --api-key "${{ secrets.DEFECTDOJO_API_KEY }}" \
+            --product "Secure DevOps Pipeline" \
+            --engagement "Scan - ${{ github.run_id }}"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
