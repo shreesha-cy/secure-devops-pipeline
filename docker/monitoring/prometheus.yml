@@ -7,6 +7,8 @@ scrape_configs:
     static_configs:
       - targets: ['prometheus:9090']
 
+     # 📤 Prometheus Pushgateway (receives metrics from CI/CD pipeline)
+
   - job_name: 'pushgateway'
     honor_labels: true
     static_configs:
@@ -21,13 +23,7 @@ scrape_configs:
   #   scrape_interval: 30s
   #   scrape_timeout: 10s
 
-     # 📤 Prometheus Pushgateway (receives metrics from CI/CD pipeline)
-  - job_name: 'pushgateway'
-    honor_labels: true
-    static_configs:
-      - targets: ['pushgateway:9091']
-    scrape_interval: 10s
-
+  
   # NOTE: DefectDojo metrics endpoint is not enabled by default
   # To use DefectDojo metrics, configure environment variable: DD_ENABLE_PROMETHEUS_EXPORT=True
   # For now, we focus on pipeline metrics and Spring Boot metrics

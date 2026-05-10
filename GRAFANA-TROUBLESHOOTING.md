@@ -96,19 +96,13 @@ Add these secrets to enable the full data pipeline:
 
 The current config is incomplete. The Spring Boot actuator target uses `host.docker.internal:8080` which won't have metrics running.
 
-**Fix:** Update/add these scrape configs:
+**Fix:** Ensure your `scrape_configs` contains exactly one entry for the pushgateway and one for prometheus:
 
 ```yaml
 scrape_configs:
   - job_name: 'prometheus'
     static_configs:
       - targets: ['prometheus:9090']
-
-  - job_name: 'pushgateway'
-    honor_labels: true
-    static_configs:
-      - targets: ['pushgateway:9091']
-    scrape_interval: 10s
 ```
 
 *(You can remove the spring-actuator config since that's optional)*
