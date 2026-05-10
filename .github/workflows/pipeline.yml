@@ -81,7 +81,7 @@ jobs:
             --vuln-type os,library \
             --scanners vuln \
             --skip-dirs /var/log,/tmp,/var/cache \
-            --timeout 10m \
+            --timeout 30m \
             anoop1605/devops-app
 
       # ⏳ WAIT FOR SONARQUBE
