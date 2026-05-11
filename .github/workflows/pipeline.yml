@@ -59,15 +59,6 @@ jobs:
       - name: Push Docker Image
         run: docker push anoop1605/devops-app
 
-      # 💾 CACHE TRIVY DB (Prevents downloading the vulnerability database every time)
-      - name: Cache Trivy Database
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/trivy
-          key: ${{ runner.os }}-trivy-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-trivy-
-
       # ️ TRIVY SCAN (UPDATED → JSON + non-blocking)
       - name: Scan Docker Image with Trivy
         run: |
