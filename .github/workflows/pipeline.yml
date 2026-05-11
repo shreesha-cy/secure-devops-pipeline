@@ -170,10 +170,12 @@ jobs:
       - name: 📊 Push Metrics to Prometheus Pushgateway
         if: always()
         continue-on-error: true
+        env:
+          PUSHGATEWAY_URL: ${{ secrets.PUSHGATEWAY_URL }}
+          PUSHGATEWAY_AUTH: ${{ secrets.PUSHGATEWAY_AUTH }}
         run: |
           chmod +x ./scripts/prometheus-metrics.sh
           ./scripts/prometheus-metrics.sh \
-            --pushgateway "${{ secrets.PUSHGATEWAY_URL }}" \
             --job "secure_devops_pipeline"
 
       - name: Log in to Docker Hub
