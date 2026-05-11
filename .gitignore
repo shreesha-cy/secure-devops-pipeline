@@ -24,3 +24,6 @@ build/
 #Manual
 *.docx
 .gitattributes
+
+# Ignore git config to prevent secret scanners from flagging it
+.git/config

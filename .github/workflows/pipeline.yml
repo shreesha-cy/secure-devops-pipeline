@@ -89,18 +89,21 @@ jobs:
         run: |
           echo "Waiting for SonarQube..."
           READY=false
-          for i in {1..60}; do
-            STATUS=$(curl -s http://127.0.0.1:9000/api/system/status || echo "DOWN")
-            if [[ "$STATUS" == *"UP"* ]]; then
-              echo "SonarQube is ready!"
+          MAX_ATTEMPTS=120
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            if curl -s http://127.0.0.1:9000/api/system/status | grep -q "UP"; then
+              echo "✅ SonarQube is ready!"
               READY=true
               break
             fi
-            echo "Still starting..."
+            echo "Still starting... (Attempt $i/$MAX_ATTEMPTS)"
             sleep 5
           done
           if [ "$READY" = false ]; then
-            echo "❌ SonarQube failed to start in time! Please check your Docker containers."
+            echo "❌ SonarQube failed to start in time!"
+            echo "Debugging: Checking Docker containers..."
+            docker ps -a
+            docker logs sonarqube 2>&1 | tail -20
             exit 1
           fi
       # 📦 INSTALL jq
